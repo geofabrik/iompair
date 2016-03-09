@@ -20,8 +20,6 @@ fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str) {
     let y = tile.y;
     let z = tile.zoom;
 
-
-    // FIXME do not save if it's an error
     let path = format!("{}/{}", tc_path, tile.tc_path("pbf"));
     let this_tile_tc_path = Path::new(&path);
 
@@ -30,6 +28,9 @@ fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str) {
         let mut result = client.get(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)).send();
         if result.is_err() { return; }
         let mut result = result.unwrap();
+        if result.status != hyper::status::StatusCode::Ok {
+            return;
+        }
 
         let mut vector_tile_contents: Vec<u8> = Vec::new();
         result.read_to_end(&mut vector_tile_contents);
