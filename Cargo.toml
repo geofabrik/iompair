@@ -16,3 +16,4 @@ iron = "*"
 router = "*"
 rustc-serialize = "*"
 regex = "0.1"
+tilejson = { path = "../tilejson/" }

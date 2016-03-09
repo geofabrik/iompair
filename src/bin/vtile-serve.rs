@@ -3,6 +3,7 @@ extern crate clap;
 extern crate rustc_serialize;
 extern crate slippy_map_tiles;
 extern crate regex;
+extern crate tilejson;
 
 use std::io::Read;
 use std::fs;
@@ -15,6 +16,9 @@ use hyper::header::{ContentType};
 use hyper::mime::{Mime, TopLevel, SubLevel};
 
 use regex::Regex;
+
+use tilejson::TileJSON;
+use rustc_serialize::json;
 
 use clap::{Arg, App};
 
@@ -33,16 +37,24 @@ fn main() {
              .help("Directory to use as a tile cache.").value_name("PATH"))
         .get_matches();
 
-    let port = options.value_of("port").unwrap();
+    let port = options.value_of("port").unwrap().to_string();
     let tc_path = options.value_of("tc_path").unwrap().to_string();
     // TODO make tc_path absolute
 
     println!("Serving on port {}", port);
     let uri = format!("127.0.0.1:{}", port);
-    Server::http(&uri[..]).unwrap().handle(move |req: Request, res: Response| { base_handler(req, res, &tc_path) }).unwrap();
+    Server::http(&uri[..]).unwrap().handle(move |req: Request, res: Response| { base_handler(req, res, &tc_path, &port) }).unwrap();
 }
 
-fn base_handler(req: Request, mut res: Response, tc_path: &str) {
+fn calc_tilejson(port: &str) -> String {
+    let tj = TileJSON::new(vec![format!("http://localhost:{}/${{z}}/${{x}}/${{y}}.pbf", port)]);
+    let tj_json = json::encode(&tj).unwrap();
+
+    tj_json
+
+}
+
+fn base_handler(req: Request, mut res: Response, tc_path: &str, port: &str) {
     let mut url: String = String::new();
     if let hyper::uri::RequestUri::AbsolutePath(ref u) = req.uri {
         url = u.clone();
@@ -50,7 +62,7 @@ fn base_handler(req: Request, mut res: Response, tc_path: &str) {
         
     match parse_url(&url) {
         URL::Tilejson => {
-            tilejson_handler(res, tc_path);
+            tilejson_handler(res, port);
         },
         URL::Invalid => {
             *res.status_mut() = hyper::status::StatusCode::NotFound;
@@ -115,11 +127,9 @@ fn tile_handler(mut res: Response, tc_path: &str, z: u8, x: u32, y: u32, ext: St
 
 }
 
-fn tilejson_handler(mut res: Response, tc_path: &str) {
-    let mut f = fs::File::open(format!("{}/index.json", tc_path)).unwrap();
-    let mut s = String::new();
-    f.read_to_string(&mut s);
-    res.send(s.as_bytes());
+fn tilejson_handler(mut res: Response, port: &str) {
+    let json = calc_tilejson(port);
+    res.send(json.as_bytes());
 }
 
 mod test {
