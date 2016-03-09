@@ -1,0 +1,124 @@
+extern crate iron;
+extern crate router;
+extern crate hyper;
+extern crate clap;
+extern crate rustc_serialize;
+extern crate slippy_map_tiles;
+
+use std::io::Read;
+use std::fs;
+use std::path::Path;
+use std::io::Write;
+
+use iron::{Iron, Request, Response, IronResult};
+use iron::status;
+use router::{Router};
+
+use hyper::Client;
+
+use clap::{Arg, App};
+
+use rustc_serialize::json;
+
+use slippy_map_tiles::Tile;
+
+fn main() {
+
+    let options = App::new("vtiles cacher")
+        .arg(Arg::with_name("port").short("p").long("port")
+             .takes_value(true).required(true)
+             .help("Port to listen on").value_name("PORT"))
+        .arg(Arg::with_name("upstream_url").short("u").long("upstream")
+             .takes_value(true).required(true)
+             .help("URL of the upstream vector tiles producer").value_name("URL"))
+        .arg(Arg::with_name("tc_path").short("c").long("tc-path")
+             .takes_value(true).required(true)
+             .help("Directory to use as a tile cache.").value_name("PATH"))
+        .get_matches();
+
+    let port = options.value_of("port").unwrap();
+    let upstream_url = options.value_of("upstream_url").unwrap().to_string();
+    let tc_path = options.value_of("tc_path").unwrap().to_string();
+    // TODO make tc_path absolute
+
+
+    let mut router = Router::new();
+
+    // get the tilejson details
+    let client = Client::new();
+
+    // FIXME split this into functions
+    // FIXME use the URLs in the tile json for fetching tiles
+
+    // Grab the upstream tilejson, but replace the `tiles` key with the url of this
+
+    // This is the parsed, new value for tiles
+    let new_tiles = json::Json::from_str(&format!("[\"http://localhost:{}/{{z}}/{{x}}/{{y}}.pbf\"]", port)).unwrap();
+
+    // TODO return appropriate error from upstream
+    let mut result = client.get(&format!("{}/index.json", upstream_url)).send().unwrap();
+    
+    // Some back and forth to decode, replace and encode to get the new tilejson string
+    let mut tilejson_contents = String::new();
+    result.read_to_string(&mut tilejson_contents).unwrap();
+    //println!("Got this tilejson\n{}", tilejson_contents);
+    let tilejson_0 = json::Json::from_str(&tilejson_contents).unwrap();
+    let mut tilejson = tilejson_0.as_object().unwrap().to_owned();
+    tilejson.insert("tiles".to_owned(), new_tiles);
+    let new_tilejson_contents: String = json::encode(&tilejson).unwrap();
+
+    router.get("/index.json", move |r: &mut Request| tilejson_handler(r, &new_tilejson_contents));
+
+    fn tilejson_handler(req: &mut Request, tilejson_contents: &str) -> IronResult<Response> {
+        Ok(Response::with((status::Ok, tilejson_contents)))
+    }
+
+    // Handler for tiles
+    router.get("/:z/:x/:y", move |r: &mut Request| tile_handler(r, &upstream_url, &tc_path));
+
+    fn tile_handler(req: &mut Request, upstream_url: &str, tc_path: &str) -> IronResult<Response> {
+        // FIXME parse properly and return 403 if wrong
+        let z: u8 = req.extensions.get::<Router>().unwrap().find("z").unwrap().parse().unwrap();
+        let x: u32 = req.extensions.get::<Router>().unwrap().find("x").unwrap().parse().unwrap();
+
+        let y_full = req.extensions.get::<Router>().unwrap().find("y").unwrap();
+        let y_parts = y_full.split(".").nth(0).unwrap();
+        let y: u32 = y_parts.parse().unwrap();
+
+        let tile = Tile::new(z, x, y).unwrap();
+        let path = format!("{}/{}", tc_path, tile.tc_path("pbf"));
+        let this_tile_tc_path = Path::new(&path);
+
+        // This is a stupid bit of hackery to ensure that s is initialised to /something/
+        let mut vector_tile_contents: Vec<u8> = Vec::new();
+        
+        if this_tile_tc_path.exists() {
+            let mut file = fs::File::open(this_tile_tc_path).unwrap();
+            file.read_to_end(&mut vector_tile_contents);
+        } else {
+            let client = Client::new();
+            let mut result = client.get(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)).send().unwrap();
+
+            // used to have an unwrap here, but that panic'ed
+            result.read_to_end(&mut vector_tile_contents);
+
+            // FIXME do not save if it's an error
+
+            let parent_directory = this_tile_tc_path.parent().unwrap();
+            if ! parent_directory.exists() {
+                fs::create_dir_all(this_tile_tc_path.parent().unwrap());
+            }
+
+            let mut file = fs::File::create(this_tile_tc_path).unwrap();
+            file.write_all(&vector_tile_contents);
+
+        }
+
+        // FIXME correct Content-Type
+        Ok(Response::with((status::Ok, vector_tile_contents)))
+
+    }
+
+    println!("Serving on port {}", port);
+    Iron::new(router).http(&*format!("localhost:{}", port)).unwrap();
+}
