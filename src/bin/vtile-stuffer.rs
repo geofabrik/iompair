@@ -63,17 +63,21 @@ fn main() {
         .arg(Arg::with_name("threads").short("t").long("threads")
              .takes_value(true).required(false)
              .help("Number of threads").value_name("THREADS"))
+        .arg(Arg::with_name("max-zoom").short("z").long("max-zoom")
+             .takes_value(true).required(false)
+             .help("Maximum zoom to go to").value_name("ZOOM"))
         .get_matches();
 
     let upstream_url = options.value_of("upstream_url").unwrap().to_string();
     let tc_path = options.value_of("tc_path").unwrap().to_string();
     let threads = options.value_of("threads").unwrap_or("4").parse().unwrap();
+    let max_zoom = options.value_of("max-zoom").unwrap_or("14").parse().unwrap();
 
 
     println!("Starting {} threads", threads);
     let mut pool = simple_parallel::Pool::new(threads);
     
-    pool.for_(Tile::all_to_zoom(14).progress(), |(state, tile)| {
+    pool.for_(Tile::all_to_zoom(max_zoom).progress(), |(state, tile)| {
             state.print_every(100, format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
             dl_tile(tile, &tc_path, &upstream_url);
     });
