@@ -32,7 +32,6 @@ fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str) {
         let mut result = result.unwrap();
 
         let mut vector_tile_contents: Vec<u8> = Vec::new();
-        // used to have an unwrap here, but that panic'ed
         result.read_to_end(&mut vector_tile_contents);
 
         let parent_directory = this_tile_tc_path.parent();
