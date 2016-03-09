@@ -1,0 +1,18 @@
+[package]
+name = "vtile"
+version = "0.1.0"
+license = "AGPL-3.0"
+description = "Work with Slippy map tile names, found in OpenStreetMap"
+keywords = ["openstreetmap", "osm", "vectortiles"]
+authors = ["Rory McCann <rory@technomancy.org>"]
+
+[dependencies]
+slippy-map-tiles = { path = "../slippy-map-tiles/" }
+hyper = "*"
+clap = "*"
+simple_parallel = "*"
+iter-progress = { path = "../iter-progress/" }
+iron = "*"
+router = "*"
+rustc-serialize = "*"
+regex = "0.1"
