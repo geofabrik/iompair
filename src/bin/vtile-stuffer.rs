@@ -12,7 +12,7 @@ use std::io::Write;
 use clap::{Arg, App};
 
 use hyper::Client;
-use slippy_map_tiles::Tile;
+use slippy_map_tiles::{Tile, BBox};
 use iter_progress::ProgressableIter;
 
 fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str) {
@@ -54,18 +54,27 @@ fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str) {
 fn main() {
 
     let options = App::new("vtiles-stuffer")
+        .setting(clap::AppSettings::AllowLeadingHyphen)
         .arg(Arg::with_name("upstream_url").short("u").long("upstream")
              .takes_value(true).required(true)
              .help("URL of the upstream vector tiles producer").value_name("URL"))
         .arg(Arg::with_name("tc_path").short("c").long("tc-path")
              .takes_value(true).required(true)
              .help("Directory to use as a tile cache.").value_name("PATH"))
-        .arg(Arg::with_name("threads").short("t").long("threads")
+        .arg(Arg::with_name("threads").short("T").long("threads")
              .takes_value(true).required(false)
              .help("Number of threads").value_name("THREADS"))
         .arg(Arg::with_name("max-zoom").short("z").long("max-zoom")
              .takes_value(true).required(false)
              .help("Maximum zoom to go to").value_name("ZOOM"))
+        .arg(Arg::with_name("top").short("t").long("top")
+             .takes_value(true).required(false))
+        .arg(Arg::with_name("left").short("l").long("left")
+             .takes_value(true).required(false))
+        .arg(Arg::with_name("bottom").short("b").long("bottom")
+             .takes_value(true).required(false))
+        .arg(Arg::with_name("right").short("r").long("right")
+             .takes_value(true).required(false))
         .get_matches();
 
     let upstream_url = options.value_of("upstream_url").unwrap().to_string();
@@ -73,14 +82,39 @@ fn main() {
     let threads = options.value_of("threads").unwrap_or("4").parse().unwrap();
     let max_zoom = options.value_of("max-zoom").unwrap_or("14").parse().unwrap();
 
+    let top = options.value_of("top").unwrap_or("90").parse().unwrap();
+    let bottom = options.value_of("bottom").unwrap_or("-90").parse().unwrap();
+    let left = options.value_of("left").unwrap_or("-180").parse().unwrap();
+    let right = options.value_of("right").unwrap_or("180").parse().unwrap();
 
     println!("Starting {} threads", threads);
     let mut pool = simple_parallel::Pool::new(threads);
-    
-    pool.for_(Tile::all_to_zoom(max_zoom).progress(), |(state, tile)| {
+
+    // FIXME unfortunate duplicate with the pool.for_ line
+
+    if top == 90. && bottom == -90. && left == -180. && right == 180. {
+        // We're doing the whole world
+        let iter = Box::new(Tile::all_to_zoom(max_zoom));
+        pool.for_(iter.progress(), |(state, tile)| {
             state.print_every(100, format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
             dl_tile(tile, &tc_path, &upstream_url);
-    });
+        });
+    } else {
+        match slippy_map_tiles::BBox::new(top, left, bottom, right) {
+            None => {
+                println!("Invalid bbox");
+            return;
+            },
+            Some(b) => {
+                let iter = b.tiles().take_while(|&t| { t.zoom <= max_zoom });
+
+                pool.for_(iter.progress(), |(state, tile)| {
+                    state.print_every(100, format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
+                    dl_tile(tile, &tc_path, &upstream_url);
+                });
+            },
+        }
+    }
 
     print!("\n");
 }
