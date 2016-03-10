@@ -35,34 +35,40 @@ fn main() {
         .arg(Arg::with_name("tc_path").short("c").long("tc-path")
              .takes_value(true).required(true)
              .help("Directory to use as a tile cache.").value_name("PATH"))
+        .arg(Arg::with_name("maxzoom").short("z").long("max-zoom")
+             .takes_value(true)
+             .help("Maximum zoom to preten").value_name("ZOOM"))
         .get_matches();
 
     let port = options.value_of("port").unwrap().to_string();
     let tc_path = options.value_of("tc_path").unwrap().to_string();
+    let maxzoom: u8 = options.value_of("maxzoom").unwrap_or("14").parse().unwrap();
     // TODO make tc_path absolute
 
     println!("Serving on port {}", port);
     let uri = format!("127.0.0.1:{}", port);
-    Server::http(&uri[..]).unwrap().handle(move |req: Request, res: Response| { base_handler(req, res, &tc_path, &port) }).unwrap();
+    Server::http(&uri[..]).unwrap().handle(move |req: Request, res: Response| { base_handler(req, res, &tc_path, &port, maxzoom) }).unwrap();
 }
 
-fn calc_tilejson(port: &str) -> String {
-    let tj = TileJSON::new(vec![format!("http://localhost:{}/${{z}}/${{x}}/${{y}}.pbf", port)]);
-    let tj_json = json::encode(&tj).unwrap();
+fn calc_tilejson(port: &str, maxzoom: u8) -> String {
+    let mut tj = TileJSON::new(vec![format!("http://localhost:{}/${{z}}/${{x}}/${{y}}.pbf", port)]);
 
+    tj.maxzoom(maxzoom);
+
+    let tj_json = json::encode(&tj).unwrap();
     tj_json
 
 }
 
-fn base_handler(req: Request, mut res: Response, tc_path: &str, port: &str) {
+fn base_handler(req: Request, mut res: Response, tc_path: &str, port: &str, maxzoom: u8) {
     let mut url: String = String::new();
     if let hyper::uri::RequestUri::AbsolutePath(ref u) = req.uri {
         url = u.clone();
     }
         
-    match parse_url(&url) {
+    match parse_url(&url, maxzoom) {
         URL::Tilejson => {
-            tilejson_handler(res, port);
+            tilejson_handler(res, port, maxzoom);
         },
         URL::Invalid => {
             *res.status_mut() = hyper::status::StatusCode::NotFound;
@@ -81,7 +87,7 @@ enum URL {
 }
 
 
-fn parse_url(url: &str) -> URL {
+fn parse_url(url: &str, maxzoom: u8) -> URL {
     // FIXME reuse regex
     if url == "/index.json" {
         URL::Tilejson
@@ -89,10 +95,14 @@ fn parse_url(url: &str) -> URL {
         let re = Regex::new("/(?P<z>[0-9]?[0-9])/(?P<x>[0-9]+)/(?P<y>[0-9]+)\\.(?P<ext>.{3,4})").unwrap();
         if let Some(caps) = re.captures(url) {
             let z: u8 = caps.name("z").unwrap().parse().unwrap();
-            let x: u32 = caps.name("x").unwrap().parse().unwrap();
-            let y: u32 = caps.name("y").unwrap().parse().unwrap();
-            let ext: String = caps.name("ext").unwrap().to_owned();
-            URL::Tile(z, x, y, ext)
+            if z > maxzoom {
+                URL::Invalid
+            } else {
+                let x: u32 = caps.name("x").unwrap().parse().unwrap();
+                let y: u32 = caps.name("y").unwrap().parse().unwrap();
+                let ext: String = caps.name("ext").unwrap().to_owned();
+                URL::Tile(z, x, y, ext)
+            }
         } else {
             URL::Invalid
         }
@@ -127,8 +137,8 @@ fn tile_handler(mut res: Response, tc_path: &str, z: u8, x: u32, y: u32, ext: St
 
 }
 
-fn tilejson_handler(mut res: Response, port: &str) {
-    let json = calc_tilejson(port);
+fn tilejson_handler(mut res: Response, port: &str, maxzoom: u8) {
+    let json = calc_tilejson(port, maxzoom);
     res.send(json.as_bytes());
 }
 
@@ -137,9 +147,10 @@ mod test {
     fn test_url_parse() {
         use super::{parse_url, URL};
 
-        assert_eq!(parse_url("/"), URL::Invalid);
-        assert_eq!(parse_url("/index.json"), URL::Tilejson);
-        assert_eq!(parse_url("/2/12/12.png"), URL::Tile(2, 12, 12, "png".to_owned()));
+        assert_eq!(parse_url("/", 22), URL::Invalid);
+        assert_eq!(parse_url("/index.json", 22), URL::Tilejson);
+        assert_eq!(parse_url("/2/12/12.png", 22), URL::Tile(2, 12, 12, "png".to_owned()));
+        assert_eq!(parse_url("/2/12/12.png", 1), URL::Invalid);
 
     }
 
