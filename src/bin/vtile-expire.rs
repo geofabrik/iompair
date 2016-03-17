@@ -102,6 +102,7 @@ fn main() {
             // Nothing to do, sleeping for 1 minute
             println!("Nothing to do");
             sleep_ms(60 * 1000);
+            continue;
         }
 
         println!("Found {} files ({:?}) to process", expire_filenames.len(), expire_filenames);
