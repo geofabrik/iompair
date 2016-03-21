@@ -97,6 +97,9 @@ fn main() {
         .arg(Arg::with_name("max-zoom").short("z").long("max-zoom")
              .takes_value(true).required(false).default_value("14")
              .help("Maximum zoom to go to").value_name("ZOOM"))
+        .arg(Arg::with_name("min-zoom").long("min-zoom")
+             .takes_value(true).required(false).default_value("0")
+             .help("Minimum zoom to start from").value_name("ZOOM"))
         .arg(Arg::with_name("top").short("t").long("top")
              .takes_value(true).required(false))
         .arg(Arg::with_name("left").short("l").long("left")
@@ -111,6 +114,7 @@ fn main() {
     let tc_path = options.value_of("tc_path").unwrap().to_string();
     let threads = options.value_of("threads").unwrap().parse().unwrap();
     let max_zoom = options.value_of("max-zoom").unwrap().parse().unwrap();
+    let min_zoom: u8 = options.value_of("min-zoom").unwrap().parse().unwrap();
 
     let top = options.value_of("top").unwrap_or("90").parse().unwrap();
     let bottom = options.value_of("bottom").unwrap_or("-90").parse().unwrap();
@@ -128,7 +132,7 @@ fn main() {
 
     if top == 90. && bottom == -90. && left == -180. && right == 180. {
         // We're doing the whole world
-        let iter = Box::new(Tile::all_to_zoom(max_zoom));
+        let iter = Box::new(Tile::all_to_zoom(max_zoom).filter(|&t| { t.zoom() >= min_zoom }));
         pool.for_(iter.progress(), |(state, tile)| {
             state.print_every(100, format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
             dl_tile(tile, &tc_path, &upstream_url);
@@ -140,7 +144,7 @@ fn main() {
                 return;
             },
             Some(b) => {
-                let iter = b.tiles().take_while(|&t| { t.zoom() <= max_zoom });
+                let iter = b.tiles().filter(|&t| { t.zoom() >= min_zoom }).take_while(|&t| { t.zoom() <= max_zoom });
 
                 pool.for_(iter.progress(), |(state, tile)| {
                     state.print_every(100, format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
