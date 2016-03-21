@@ -16,9 +16,9 @@ use slippy_map_tiles::{Tile, BBox};
 use iter_progress::ProgressableIter;
 
 fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str) {
-    let x = tile.x;
-    let y = tile.y;
-    let z = tile.zoom;
+    let x = tile.x();
+    let y = tile.y();
+    let z = tile.zoom();
 
     let path = format!("{}/{}", tc_path, tile.tc_path("pbf"));
     let this_tile_tc_path = Path::new(&path);
@@ -106,7 +106,7 @@ fn main() {
             return;
             },
             Some(b) => {
-                let iter = b.tiles().take_while(|&t| { t.zoom <= max_zoom });
+                let iter = b.tiles().take_while(|&t| { t.zoom() <= max_zoom });
 
                 pool.for_(iter.progress(), |(state, tile)| {
                     state.print_every(100, format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));

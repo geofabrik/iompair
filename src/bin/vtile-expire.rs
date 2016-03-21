@@ -20,9 +20,9 @@ use slippy_map_tiles::{Tile, BBox};
 use iter_progress::ProgressableIter;
 
 fn dl_tile_if_older(tile: Tile, tc_path: &str, upstream_url: &str, expiry_mtime: time_t) {
-    let x = tile.x;
-    let y = tile.y;
-    let z = tile.zoom;
+    let x = tile.x();
+    let y = tile.y();
+    let z = tile.zoom();
 
     let path = format!("{}/{}", tc_path, tile.tc_path("pbf"));
     let this_tile_tc_path = Path::new(&path);
