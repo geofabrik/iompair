@@ -50,10 +50,40 @@ fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str) {
 
 }
 
+fn dl_tilejson(tc_path: &str, upstream_url: &str) {
+    let client = Client::new();
+    let mut result = client.get(&format!("{}/index.json", upstream_url)).send();
+    if result.is_err() { return; }
+    let mut result = result.unwrap();
+    if result.status != hyper::status::StatusCode::Ok {
+        return;
+    }
+
+    let mut contents: Vec<u8> = Vec::new();
+    result.read_to_end(&mut contents);
+
+    let path = format!("{}/index.json", tc_path);
+    let path = Path::new(&path);
+    let parent_directory = path.parent();
+    if parent_directory.is_none() { return; }
+    let parent_directory = parent_directory.unwrap();
+    if ! parent_directory.exists() {
+        fs::create_dir_all(parent_directory);
+    }
+
+    let mut file = fs::File::create(path);
+    if file.is_err() { return; }
+    let mut file = file.unwrap();
+    file.write_all(&contents);
+
+}
+
 
 fn main() {
 
-    let options = App::new("vtiles-stuffer")
+    // FIXME the upstream URL should be changed to take a tilejson URL
+
+   let options = App::new("vtiles-stuffer")
         .setting(clap::AppSettings::AllowLeadingHyphen)
         .arg(Arg::with_name("upstream_url").short("u").long("upstream")
              .takes_value(true).required(true)
@@ -86,6 +116,10 @@ fn main() {
     let bottom = options.value_of("bottom").unwrap_or("-90").parse().unwrap();
     let left = options.value_of("left").unwrap_or("-180").parse().unwrap();
     let right = options.value_of("right").unwrap_or("180").parse().unwrap();
+
+    // Download the tilejson file and save it for later.
+    dl_tilejson(&tc_path, &upstream_url);
+    println!("Downloaded TileJSON");
 
     println!("Starting {} threads", threads);
     let mut pool = simple_parallel::Pool::new(threads);
