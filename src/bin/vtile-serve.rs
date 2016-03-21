@@ -7,6 +7,7 @@ extern crate tilejson;
 
 use std::io::Read;
 use std::fs;
+use std::fs::File;
 use std::path::Path;
 
 use hyper::Server;
@@ -50,14 +51,22 @@ fn main() {
     Server::http(&uri[..]).unwrap().handle(move |req: Request, res: Response| { base_handler(req, res, &tc_path, &port, maxzoom) }).unwrap();
 }
 
-fn calc_tilejson(port: &str, maxzoom: u8) -> String {
-    let mut tj = TileJSON::new(vec![format!("http://localhost:{}/${{z}}/${{x}}/${{y}}.pbf", port)]);
+fn tilejson_contents(tc_path: &str, port: &str, maxzoom: u8) -> String {
+    let new_tiles = json::Json::from_str(&format!("[\"http://localhost:{}/{{z}}/{{x}}/{{y}}.pbf\"]", port)).unwrap();
+    let zoom_element = json::Json::U64(maxzoom as u64);
 
-    tj.maxzoom(maxzoom);
+    let mut f = File::open(format!("{}/index.json", tc_path)).unwrap();
+    let mut s = String::new();
+    f.read_to_string(&mut s);
 
-    let tj_json = json::encode(&tj).unwrap();
-    tj_json
+    // Some back and forth to decode, replace and encode to get the new tilejson string
+    let tilejson_0 = json::Json::from_str(&s).unwrap();
+    let mut tilejson = tilejson_0.as_object().unwrap().to_owned();
+    tilejson.insert("tiles".to_owned(), new_tiles);
+    tilejson.insert("maxzoom".to_owned(), zoom_element);
+    let new_tilejson_contents: String = json::encode(&tilejson).unwrap();
 
+    new_tilejson_contents
 }
 
 fn base_handler(req: Request, mut res: Response, tc_path: &str, port: &str, maxzoom: u8) {
@@ -68,7 +77,7 @@ fn base_handler(req: Request, mut res: Response, tc_path: &str, port: &str, maxz
         
     match parse_url(&url, maxzoom) {
         URL::Tilejson => {
-            tilejson_handler(res, port, maxzoom);
+            tilejson_handler(res, tc_path, port, maxzoom);
         },
         URL::Invalid => {
             *res.status_mut() = hyper::status::StatusCode::NotFound;
@@ -137,8 +146,8 @@ fn tile_handler(mut res: Response, tc_path: &str, z: u8, x: u32, y: u32, ext: St
 
 }
 
-fn tilejson_handler(mut res: Response, port: &str, maxzoom: u8) {
-    let json = calc_tilejson(port, maxzoom);
+fn tilejson_handler(mut res: Response, tc_path: &str, port: &str, maxzoom: u8) {
+    let json = tilejson_contents(tc_path, port, maxzoom);
     res.send(json.as_bytes());
 }
 
