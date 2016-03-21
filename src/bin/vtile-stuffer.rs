@@ -92,10 +92,10 @@ fn main() {
              .takes_value(true).required(true)
              .help("Directory to use as a tile cache.").value_name("PATH"))
         .arg(Arg::with_name("threads").short("T").long("threads")
-             .takes_value(true).required(false)
+             .takes_value(true).required(false).default_value("4")
              .help("Number of threads").value_name("THREADS"))
         .arg(Arg::with_name("max-zoom").short("z").long("max-zoom")
-             .takes_value(true).required(false)
+             .takes_value(true).required(false).default_value("14")
              .help("Maximum zoom to go to").value_name("ZOOM"))
         .arg(Arg::with_name("top").short("t").long("top")
              .takes_value(true).required(false))
@@ -109,8 +109,8 @@ fn main() {
 
     let upstream_url = options.value_of("upstream_url").unwrap().to_string();
     let tc_path = options.value_of("tc_path").unwrap().to_string();
-    let threads = options.value_of("threads").unwrap_or("4").parse().unwrap();
-    let max_zoom = options.value_of("max-zoom").unwrap_or("14").parse().unwrap();
+    let threads = options.value_of("threads").unwrap().parse().unwrap();
+    let max_zoom = options.value_of("max-zoom").unwrap().parse().unwrap();
 
     let top = options.value_of("top").unwrap_or("90").parse().unwrap();
     let bottom = options.value_of("bottom").unwrap_or("-90").parse().unwrap();
