@@ -103,7 +103,7 @@ fn main() {
         match slippy_map_tiles::BBox::new(top, left, bottom, right) {
             None => {
                 println!("Invalid bbox");
-            return;
+                return;
             },
             Some(b) => {
                 let iter = b.tiles().take_while(|&t| { t.zoom() <= max_zoom });
