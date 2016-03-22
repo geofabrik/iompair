@@ -15,7 +15,7 @@ use hyper::Client;
 use slippy_map_tiles::{Tile, BBox};
 use iter_progress::ProgressableIter;
 
-fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str) {
+fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool) {
     let x = tile.x();
     let y = tile.y();
     let z = tile.zoom();
@@ -23,7 +23,7 @@ fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str) {
     let path = format!("{}/{}", tc_path, tile.tc_path("pbf"));
     let this_tile_tc_path = Path::new(&path);
 
-    if ! this_tile_tc_path.exists() {
+    if ! this_tile_tc_path.exists() || always_download {
         let client = Client::new();
         let mut result = client.get(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)).send();
         if result.is_err() { return; }
@@ -108,6 +108,9 @@ fn main() {
              .takes_value(true).required(false))
         .arg(Arg::with_name("right").short("r").long("right")
              .takes_value(true).required(false))
+        .arg(Arg::with_name("always-download").long("always-download")
+             .takes_value(false).required(false)
+             .help("Always download the files, even if they already exist"))
         .get_matches();
 
     let upstream_url = options.value_of("upstream_url").unwrap().to_string();
@@ -115,6 +118,8 @@ fn main() {
     let threads = options.value_of("threads").unwrap().parse().unwrap();
     let max_zoom = options.value_of("max-zoom").unwrap().parse().unwrap();
     let min_zoom: u8 = options.value_of("min-zoom").unwrap().parse().unwrap();
+
+    let always_download = options.is_present("always-download");
 
     let top = options.value_of("top").unwrap_or("90").parse().unwrap();
     let bottom = options.value_of("bottom").unwrap_or("-90").parse().unwrap();
@@ -135,7 +140,7 @@ fn main() {
         let iter = Box::new(Tile::all_to_zoom(max_zoom).filter(|&t| { t.zoom() >= min_zoom }));
         pool.for_(iter.progress(), |(state, tile)| {
             state.print_every(100, format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
-            dl_tile(tile, &tc_path, &upstream_url);
+            dl_tile(tile, &tc_path, &upstream_url, always_download);
         });
     } else {
         match slippy_map_tiles::BBox::new(top, left, bottom, right) {
@@ -148,7 +153,7 @@ fn main() {
 
                 pool.for_(iter.progress(), |(state, tile)| {
                     state.print_every(100, format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
-                    dl_tile(tile, &tc_path, &upstream_url);
+                    dl_tile(tile, &tc_path, &upstream_url, always_download);
                 });
             },
         }
