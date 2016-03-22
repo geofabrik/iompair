@@ -1,19 +1,25 @@
 [package]
-name = "vtile"
-version = "0.1.0"
-license = "AGPL-3.0"
+authors = ["Rory McCann <rory@technomancy.org>"]
 description = "Work with Slippy map tile names, found in OpenStreetMap"
 keywords = ["openstreetmap", "osm", "vectortiles"]
-authors = ["Rory McCann <rory@technomancy.org>"]
+license = "AGPL-3.0"
+name = "vtile"
+version = "0.2.0"
 
 [dependencies]
-slippy-map-tiles = { path = "../slippy-map-tiles/" }
-hyper = "*"
 clap = "*"
-simple_parallel = "*"
-iter-progress = { path = "../iter-progress/" }
+hyper = "*"
 iron = "*"
+regex = "0.1"
 router = "*"
 rustc-serialize = "*"
-regex = "0.1"
-tilejson = { path = "../tilejson/" }
+simple_parallel = "*"
+
+[dependencies.iter-progress]
+path = "../iter-progress/"
+
+[dependencies.slippy-map-tiles]
+path = "../slippy-map-tiles/"
+
+[dependencies.tilejson]
+path = "../tilejson/"
