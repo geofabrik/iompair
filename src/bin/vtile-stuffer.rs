@@ -20,6 +20,7 @@ fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool)
     let y = tile.y();
     let z = tile.zoom();
 
+    // FIXME replace with proper path opts
     let path = format!("{}/{}", tc_path, tile.tc_path("pbf"));
     let this_tile_tc_path = Path::new(&path);
 
