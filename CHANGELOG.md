@@ -1,3 +1,13 @@
+<a name="v0.3.0"></a>
+## v0.3.0 (2016-03-22)
+
+
+#### Features
+
+*   Rename to iompair ([8b8ff07b](8b8ff07b))
+
+
+
 <a name="v0.2.0"></a>
 ## v0.2.0 (2016-03-22)
 
