@@ -16,25 +16,13 @@ use router::{Router};
 
 use hyper::Client;
 
-use clap::{Arg, App};
+use clap::{Arg, App, ArgMatches};
 
 use rustc_serialize::json;
 
 use slippy_map_tiles::Tile;
 
-fn main() {
-
-    let options = App::new("vtiles cacher")
-        .arg(Arg::with_name("port").short("p").long("port")
-             .takes_value(true).required(true)
-             .help("Port to listen on").value_name("PORT"))
-        .arg(Arg::with_name("upstream_url").short("u").long("upstream")
-             .takes_value(true).required(true)
-             .help("URL of the upstream vector tiles producer").value_name("URL"))
-        .arg(Arg::with_name("tc_path").short("c").long("tc-path")
-             .takes_value(true).required(true)
-             .help("Directory to use as a tile cache.").value_name("PATH"))
-        .get_matches();
+pub fn cache(options: &ArgMatches) {
 
     let port = options.value_of("port").unwrap();
     let upstream_url = options.value_of("upstream_url").unwrap().to_string();
