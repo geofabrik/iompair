@@ -24,7 +24,7 @@ use expire::expire;
 
 fn main() {
 
-    let options = App::new("vtile")
+    let options = App::new("iompair")
         .subcommand(SubCommand::with_name("cache")
             .arg(Arg::with_name("port").short("p").long("port")
                  .takes_value(true).required(true)
