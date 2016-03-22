@@ -9,7 +9,7 @@ use std::fs;
 use std::path::Path;
 use std::io::Write;
 
-use clap::{Arg, App};
+use clap::{Arg, App, ArgMatches};
 
 use hyper::Client;
 use slippy_map_tiles::{Tile, BBox};
@@ -80,39 +80,7 @@ fn dl_tilejson(tc_path: &str, upstream_url: &str) {
 }
 
 
-fn main() {
-
-    // FIXME the upstream URL should be changed to take a tilejson URL
-
-   let options = App::new("vtiles-stuffer")
-        .setting(clap::AppSettings::AllowLeadingHyphen)
-        .arg(Arg::with_name("upstream_url").short("u").long("upstream")
-             .takes_value(true).required(true)
-             .help("URL of the upstream vector tiles producer").value_name("URL"))
-        .arg(Arg::with_name("tc_path").short("c").long("tc-path")
-             .takes_value(true).required(true)
-             .help("Directory to use as a tile cache.").value_name("PATH"))
-        .arg(Arg::with_name("threads").short("T").long("threads")
-             .takes_value(true).required(false).default_value("4")
-             .help("Number of threads").value_name("THREADS"))
-        .arg(Arg::with_name("max-zoom").short("z").long("max-zoom")
-             .takes_value(true).required(false).default_value("14")
-             .help("Maximum zoom to go to").value_name("ZOOM"))
-        .arg(Arg::with_name("min-zoom").long("min-zoom")
-             .takes_value(true).required(false).default_value("0")
-             .help("Minimum zoom to start from").value_name("ZOOM"))
-        .arg(Arg::with_name("top").short("t").long("top")
-             .takes_value(true).required(false))
-        .arg(Arg::with_name("left").short("l").long("left")
-             .takes_value(true).required(false))
-        .arg(Arg::with_name("bottom").short("b").long("bottom")
-             .takes_value(true).required(false))
-        .arg(Arg::with_name("right").short("r").long("right")
-             .takes_value(true).required(false))
-        .arg(Arg::with_name("always-download").long("always-download")
-             .takes_value(false).required(false)
-             .help("Always download the files, even if they already exist"))
-        .get_matches();
+pub fn stuffer(options: &ArgMatches) {
 
     let upstream_url = options.value_of("upstream_url").unwrap().to_string();
     let tc_path = options.value_of("tc_path").unwrap().to_string();
