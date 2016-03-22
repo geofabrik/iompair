@@ -14,10 +14,12 @@ use clap::{Arg, App, ArgMatches, SubCommand};
 mod cache;
 mod serve;
 mod stuffer;
+mod expire;
 
 use cache::cache;
 use serve::serve;
 use stuffer::stuffer;
+use expire::expire;
 
 
 fn main() {
@@ -74,12 +76,27 @@ fn main() {
                  .takes_value(false).required(false)
                  .help("Always download the files, even if they already exist"))
             )
+        .subcommand(SubCommand::with_name("expire")
+            .arg(Arg::with_name("upstream_url").short("u").long("upstream")
+                 .takes_value(true).required(true)
+                 .help("URL of the upstream vector tiles producer").value_name("URL"))
+            .arg(Arg::with_name("tc_path").short("c").long("tc-path")
+                 .takes_value(true).required(true)
+                 .help("Directory to use as a tile cache.").value_name("PATH"))
+            .arg(Arg::with_name("threads").short("T").long("threads")
+                 .takes_value(true).required(false)
+                 .help("Number of threads").value_name("THREADS"))
+            .arg(Arg::with_name("expire_path").short("e").long("expire-path")
+                 .takes_value(true).required(true)
+                 .help("Directory which stores the expire-*.txt files").value_name("PATH"))
+            )
         .get_matches();
 
     match options.subcommand() {
         ("cache", Some(options)) => { cache(options); },
         ("serve", Some(options)) => { serve(options); },
         ("stuffer", Some(options)) => { stuffer(options); },
+        ("expire", Some(options)) => { expire(options); },
         (_, _) => { println!("{}", options.usage()); },
     }
 

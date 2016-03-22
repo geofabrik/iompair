@@ -13,7 +13,7 @@ use std::os::unix::fs::MetadataExt;
 use std::os::unix::raw::time_t;
 use std::thread::sleep_ms;
 
-use clap::{Arg, App};
+use clap::{Arg, App, ArgMatches};
 
 use hyper::Client;
 use slippy_map_tiles::{Tile, BBox};
@@ -62,23 +62,7 @@ fn dl_tile_if_older(tile: Tile, tc_path: &str, upstream_url: &str, expiry_mtime:
 }
 
 
-fn main() {
-
-    let options = App::new("vtiles-expire")
-        .setting(clap::AppSettings::AllowLeadingHyphen)
-        .arg(Arg::with_name("upstream_url").short("u").long("upstream")
-             .takes_value(true).required(true)
-             .help("URL of the upstream vector tiles producer").value_name("URL"))
-        .arg(Arg::with_name("tc_path").short("c").long("tc-path")
-             .takes_value(true).required(true)
-             .help("Directory to use as a tile cache.").value_name("PATH"))
-        .arg(Arg::with_name("threads").short("T").long("threads")
-             .takes_value(true).required(false)
-             .help("Number of threads").value_name("THREADS"))
-        .arg(Arg::with_name("expire_path").short("e").long("expire-path")
-             .takes_value(true).required(true)
-             .help("Directory which stores the expire-*.txt files").value_name("PATH"))
-        .get_matches();
+pub fn expire(options: &ArgMatches) {
 
     let upstream_url = options.value_of("upstream_url").unwrap().to_string();
     let tc_path = options.value_of("tc_path").unwrap().to_string();
