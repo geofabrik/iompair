@@ -27,8 +27,8 @@ pub fn cache(options: &ArgMatches) {
     let port = options.value_of("port").unwrap();
     let upstream_url = options.value_of("upstream_url").unwrap().to_string();
     let tc_path = options.value_of("tc_path").unwrap().to_string();
+    let maxzoom = options.value_of("maxzoom").and_then(|x| { x.parse::<u8>().ok() });
     // TODO make tc_path absolute
-
 
     let mut router = Router::new();
 
@@ -53,6 +53,11 @@ pub fn cache(options: &ArgMatches) {
     let tilejson_0 = json::Json::from_str(&tilejson_contents).unwrap();
     let mut tilejson = tilejson_0.as_object().unwrap().to_owned();
     tilejson.insert("tiles".to_owned(), new_tiles);
+
+    if let Some(z) = maxzoom {
+        tilejson.insert("maxzoom".to_owned(), json::Json::U64(z as u64));
+    }
+
     let new_tilejson_contents: String = json::encode(&tilejson).unwrap();
 
     router.get("/index.json", move |r: &mut Request| tilejson_handler(r, &new_tilejson_contents));
