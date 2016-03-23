@@ -33,6 +33,8 @@ pub fn serve(options: &ArgMatches) {
     let tc_path = options.value_of("tc_path").unwrap().to_string();
     let maxzoom: u8 = options.value_of("maxzoom").unwrap_or("14").parse().unwrap();
     // TODO make tc_path absolute
+    
+    // TODO read in tilejson file, change it and save it. Don't regenerate every request.
 
     println!("Serving on port {}", port);
     let uri = format!("127.0.0.1:{}", port);
