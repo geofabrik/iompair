@@ -58,31 +58,9 @@ fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool,
 }
 
 fn dl_tilejson(tc_path: &str, upstream_url: &str) {
-    let client = Client::new();
-    let mut result = client.get(&format!("{}/index.json", upstream_url)).send();
-    if result.is_err() { return; }
-    let mut result = result.unwrap();
-    if result.status != hyper::status::StatusCode::Ok {
-        return;
-    }
-
-    let mut contents: Vec<u8> = Vec::new();
-    result.read_to_end(&mut contents);
-
-    let path = format!("{}/index.json", tc_path);
-    let path = Path::new(&path);
-    let parent_directory = path.parent();
-    if parent_directory.is_none() { return; }
-    let parent_directory = parent_directory.unwrap();
-    if ! parent_directory.exists() {
-        fs::create_dir_all(parent_directory);
-    }
-
-    let mut file = fs::File::create(path);
-    if file.is_err() { return; }
-    let mut file = file.unwrap();
-    file.write_all(&contents);
-
+    download_url(&format!("{}/index.json", upstream_url)).map(|contents| {
+        save_to_file(Path::new(&format!("{}/index.json", tc_path)), &contents);
+    });
 }
 
 
