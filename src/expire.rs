@@ -34,7 +34,7 @@ fn dl_tile_if_older(tile: Tile, tc_path: &str, upstream_url: &str, expiry_mtime:
             mtime < expiry_mtime
         };
 
-    if ! this_tile_tc_path.exists() {
+    if ! should_dl {
         download_url_and_save_to_file(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y), this_tile_tc_path);
     }
 
