@@ -134,7 +134,7 @@ fn tile_handler(mut res: Response, tc_path: &str, z: u8, x: u32, y: u32, ext: St
 
 }
 
-fn tilejson_handler(mut res: Response, tc_path: &str, port: &str, maxzoom: u8) {
+fn tilejson_handler(res: Response, tc_path: &str, port: &str, maxzoom: u8) {
     let json = tilejson_contents(tc_path, port, maxzoom);
     res.send(json.as_bytes());
 }

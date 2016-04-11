@@ -60,7 +60,7 @@ pub fn cache(options: &ArgMatches) {
 
     router.get("/index.json", move |r: &mut Request| tilejson_handler(r, &new_tilejson_contents));
 
-    fn tilejson_handler(req: &mut Request, tilejson_contents: &str) -> IronResult<Response> {
+    fn tilejson_handler(_: &mut Request, tilejson_contents: &str) -> IronResult<Response> {
         Ok(Response::with((status::Ok, tilejson_contents)))
     }
 

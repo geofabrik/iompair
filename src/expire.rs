@@ -91,6 +91,5 @@ pub fn expire(options: &ArgMatches) {
         }
     }
 
-    print!("\n");
 }
 

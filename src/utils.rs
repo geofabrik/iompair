@@ -10,7 +10,7 @@ use hyper::Client;
 /// Given a URL, it'll download the URL and return the bytes. None if there was an error.
 pub fn download_url(url: &str) -> Option<Vec<u8>> {
     let client = Client::new();
-    let mut result = client.get(url).send();
+    let result = client.get(url).send();
     if result.is_err() { return None; }
     let mut result = result.unwrap();
     if result.status != hyper::status::StatusCode::Ok {
@@ -33,7 +33,7 @@ pub fn save_to_file(path: &Path, bytes: &Vec<u8>) {
         fs::create_dir_all(parent_directory);
     }
 
-    let mut file = fs::File::create(path);
+    let file = fs::File::create(path);
     if file.is_err() { return; }
     let mut file = file.unwrap();
     file.write_all(bytes);
