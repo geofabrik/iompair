@@ -37,5 +37,11 @@ pub fn save_to_file(path: &Path, bytes: &Vec<u8>) {
     if file.is_err() { return; }
     let mut file = file.unwrap();
     file.write_all(bytes);
+}
 
+/// Downloads the URL and if it went OK, saves the contents to path
+pub fn download_url_and_save_to_file(url: &str, path: &Path) {
+    download_url(url).map(|contents| {
+        save_to_file(path, &contents);
+    });
 }

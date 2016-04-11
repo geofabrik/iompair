@@ -19,7 +19,7 @@ use hyper::Client;
 use slippy_map_tiles::{Tile, BBox};
 use iter_progress::ProgressableIter;
 
-use utils::{download_url, save_to_file};
+use utils::download_url_and_save_to_file;
 
 fn dl_tile_if_older(tile: Tile, tc_path: &str, upstream_url: &str, expiry_mtime: time_t) {
     let x = tile.x();
@@ -37,14 +37,7 @@ fn dl_tile_if_older(tile: Tile, tc_path: &str, upstream_url: &str, expiry_mtime:
         };
 
     if ! this_tile_tc_path.exists() {
-        match download_url(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)) {
-            None => {
-                // Do nothing
-            },
-            Some(vector_tile_contents) => {
-                save_to_file(this_tile_tc_path, &vector_tile_contents);
-            }
-        }
+        download_url_and_save_to_file(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y), this_tile_tc_path);
     }
 
 }

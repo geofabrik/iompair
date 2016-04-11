@@ -17,7 +17,7 @@ use slippy_map_tiles::{Tile, BBox};
 use iter_progress::ProgressableIter;
 use chrono::{DateTime, UTC, FixedOffset};
 
-use utils::{download_url, save_to_file};
+use utils::download_url_and_save_to_file;
 
 fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool, files_older_than: &Option<DateTime<FixedOffset>>) {
     let x = tile.x();
@@ -46,21 +46,12 @@ fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool,
     };
 
     if should_download {
-        match download_url(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)) {
-            None => {
-                // Do nothing
-            },
-            Some(vector_tile_contents) => {
-                save_to_file(this_tile_tc_path, &vector_tile_contents);
-            }
-        }
+        download_url_and_save_to_file(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y), this_tile_tc_path);
     }
 }
 
 fn dl_tilejson(tc_path: &str, upstream_url: &str) {
-    download_url(&format!("{}/index.json", upstream_url)).map(|contents| {
-        save_to_file(Path::new(&format!("{}/index.json", tc_path)), &contents);
-    });
+    download_url_and_save_to_file(&format!("{}/index.json", upstream_url), Path::new(&format!("{}/index.json", tc_path)));
 }
 
 
