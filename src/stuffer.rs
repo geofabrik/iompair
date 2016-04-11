@@ -3,11 +3,13 @@ extern crate hyper;
 extern crate slippy_map_tiles;
 extern crate simple_parallel;
 extern crate iter_progress;
+extern crate chrono;
 
 use std::io::Read;
 use std::fs;
 use std::path::Path;
 use std::io::Write;
+use std::os::unix::fs::MetadataExt;
 
 use clap::{Arg, App, ArgMatches};
 
@@ -15,7 +17,9 @@ use hyper::Client;
 use slippy_map_tiles::{Tile, BBox};
 use iter_progress::ProgressableIter;
 
-fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool) {
+use chrono::{DateTime, UTC, FixedOffset};
+
+fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool, files_older_than: &Option<DateTime<FixedOffset>>) {
     let x = tile.x();
     let y = tile.y();
     let z = tile.zoom();
@@ -24,7 +28,24 @@ fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool)
     let path = format!("{}/{}", tc_path, tile.tc_path("pbf"));
     let this_tile_tc_path = Path::new(&path);
 
-    if ! this_tile_tc_path.exists() || always_download {
+    let should_download = if ! this_tile_tc_path.exists() {
+        true
+    } else {
+        if always_download {
+            match *files_older_than {
+                None => { true },
+                Some(dt) => {
+                    let mtime = this_tile_tc_path.metadata().unwrap().mtime();
+                    let cutoff = dt.timestamp();
+                    mtime < cutoff
+                }
+            }
+        } else {
+            false
+        }
+    };
+
+    if should_download {
         let client = Client::new();
         let mut result = client.get(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)).send();
         if result.is_err() { return; }
@@ -89,11 +110,13 @@ pub fn stuffer(options: &ArgMatches) {
     let min_zoom: u8 = options.value_of("min-zoom").unwrap().parse().unwrap();
 
     let always_download = options.is_present("always-download");
+    let files_older_than: Option<DateTime<FixedOffset>> = options.value_of("files-older-than").and_then(|t| { DateTime::parse_from_rfc3339(t).ok() });
 
     let top = options.value_of("top").unwrap_or("90").parse().unwrap();
     let bottom = options.value_of("bottom").unwrap_or("-90").parse().unwrap();
     let left = options.value_of("left").unwrap_or("-180").parse().unwrap();
     let right = options.value_of("right").unwrap_or("180").parse().unwrap();
+
 
     // Download the tilejson file and save it for later.
     dl_tilejson(&tc_path, &upstream_url);
@@ -109,7 +132,7 @@ pub fn stuffer(options: &ArgMatches) {
         let iter = Box::new(Tile::all_to_zoom(max_zoom).filter(|&t| { t.zoom() >= min_zoom }));
         pool.for_(iter.progress(), |(state, tile)| {
             state.print_every(100, format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
-            dl_tile(tile, &tc_path, &upstream_url, always_download);
+            dl_tile(tile, &tc_path, &upstream_url, always_download, &files_older_than);
         });
     } else {
         match slippy_map_tiles::BBox::new(top, left, bottom, right) {
@@ -122,7 +145,7 @@ pub fn stuffer(options: &ArgMatches) {
 
                 pool.for_(iter.progress(), |(state, tile)| {
                     state.print_every(100, format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
-                    dl_tile(tile, &tc_path, &upstream_url, always_download);
+                    dl_tile(tile, &tc_path, &upstream_url, always_download, &files_older_than);
                 });
             },
         }

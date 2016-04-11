@@ -8,6 +8,7 @@ extern crate regex;
 extern crate tilejson;
 extern crate simple_parallel;
 extern crate iter_progress;
+extern crate chrono;
 
 use clap::{Arg, App, ArgMatches, SubCommand};
 
@@ -78,6 +79,9 @@ fn main() {
             .arg(Arg::with_name("always-download").long("always-download")
                  .takes_value(false).required(false)
                  .help("Always download the files, even if they already exist"))
+            .arg(Arg::with_name("files-older-than").long("files-older-than")
+                 .takes_value(true).required(false)
+                 .help("If using --always-download, only download a file that's missing or older than this RFC3339 datetime"))
             )
         .subcommand(SubCommand::with_name("expire")
             .arg(Arg::with_name("upstream_url").short("u").long("upstream")
