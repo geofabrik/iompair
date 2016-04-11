@@ -12,12 +12,12 @@ use std::io::Write;
 use std::os::unix::fs::MetadataExt;
 
 use clap::{Arg, App, ArgMatches};
-
 use hyper::Client;
 use slippy_map_tiles::{Tile, BBox};
 use iter_progress::ProgressableIter;
-
 use chrono::{DateTime, UTC, FixedOffset};
+
+use utils::download_url;
 
 fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool, files_older_than: &Option<DateTime<FixedOffset>>) {
     let x = tile.x();
@@ -46,30 +46,25 @@ fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool,
     };
 
     if should_download {
-        let client = Client::new();
-        let mut result = client.get(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)).send();
-        if result.is_err() { return; }
-        let mut result = result.unwrap();
-        if result.status != hyper::status::StatusCode::Ok {
-            return;
+        match download_url(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)) {
+            None => {
+                // Do nothing
+            },
+            Some(vector_tile_contents) => {
+                let parent_directory = this_tile_tc_path.parent();
+                if parent_directory.is_none() { return; }
+                let parent_directory = parent_directory.unwrap();
+                if ! parent_directory.exists() {
+                    fs::create_dir_all(parent_directory);
+                }
+
+                let mut file = fs::File::create(this_tile_tc_path);
+                if file.is_err() { return; }
+                let mut file = file.unwrap();
+                file.write_all(&vector_tile_contents);
+            }
         }
-
-        let mut vector_tile_contents: Vec<u8> = Vec::new();
-        result.read_to_end(&mut vector_tile_contents);
-
-        let parent_directory = this_tile_tc_path.parent();
-        if parent_directory.is_none() { return; }
-        let parent_directory = parent_directory.unwrap();
-        if ! parent_directory.exists() {
-            fs::create_dir_all(parent_directory);
-        }
-
-        let mut file = fs::File::create(this_tile_tc_path);
-        if file.is_err() { return; }
-        let mut file = file.unwrap();
-        file.write_all(&vector_tile_contents);
     }
-
 }
 
 fn dl_tilejson(tc_path: &str, upstream_url: &str) {

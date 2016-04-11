@@ -13,14 +13,13 @@ use std::io::Write;
 use iron::{Iron, Request, Response, IronResult};
 use iron::status;
 use router::{Router};
-
 use hyper::Client;
-
 use clap::{Arg, App, ArgMatches};
-
 use rustc_serialize::json;
 
 use slippy_map_tiles::Tile;
+
+use utils::download_url;
 
 pub fn cache(options: &ArgMatches) {
 
@@ -89,11 +88,7 @@ pub fn cache(options: &ArgMatches) {
             let mut file = fs::File::open(this_tile_tc_path).unwrap();
             file.read_to_end(&mut vector_tile_contents);
         } else {
-            let client = Client::new();
-            let mut result = client.get(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)).send().unwrap();
-
-            // used to have an unwrap here, but that panic'ed
-            result.read_to_end(&mut vector_tile_contents);
+            vector_tile_contents = download_url(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)).unwrap();
 
             // FIXME do not save if it's an error
 
