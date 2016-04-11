@@ -131,7 +131,7 @@ pub fn stuffer(options: &ArgMatches) {
         // We're doing the whole world
         let iter = Box::new(Tile::all_to_zoom(max_zoom).filter(|&t| { t.zoom() >= min_zoom }));
         pool.for_(iter.progress(), |(state, tile)| {
-            state.print_every(100, format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
+            state.print_every_n_sec(5., format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
             dl_tile(tile, &tc_path, &upstream_url, always_download, &files_older_than);
         });
     } else {
@@ -144,7 +144,8 @@ pub fn stuffer(options: &ArgMatches) {
                 let iter = b.tiles().filter(|&t| { t.zoom() >= min_zoom }).take_while(|&t| { t.zoom() <= max_zoom });
 
                 pool.for_(iter.progress(), |(state, tile)| {
-                    state.print_every(100, format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
+                    state.print_every_n_sec(5., format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
+                    //state.print_every_sec(100., format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
                     dl_tile(tile, &tc_path, &upstream_url, always_download, &files_older_than);
                 });
             },

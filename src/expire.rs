@@ -104,7 +104,7 @@ pub fn expire(options: &ArgMatches) {
             let expiry_mtime = filename_path.metadata().unwrap().mtime();
 
             pool.for_(tiles.progress(), |(state, tile)| {
-                state.print_every(100, format!("{:.0}% done ({:.1}/sec), tile {:?}       \r", state.percent().unwrap(), state.rate(), tile));
+                state.print_every_n_items(100, format!("{:.0}% done ({:.1}/sec), tile {:?}       \r", state.percent().unwrap(), state.rate(), tile));
                 dl_tile_if_older(tile, &tc_path, &upstream_url, expiry_mtime);
             });
             println!("\nFinished processing file {:?}", filename);
