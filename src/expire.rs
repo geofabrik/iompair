@@ -5,7 +5,6 @@ extern crate simple_parallel;
 extern crate iter_progress;
 
 use std::fs;
-use std::fs::File;
 use std::path::Path;
 use std::io::BufReader;
 use std::io::prelude::*;
@@ -13,10 +12,9 @@ use std::os::unix::fs::MetadataExt;
 use std::os::unix::raw::time_t;
 use std::thread::sleep_ms;
 
-use clap::{Arg, App, ArgMatches};
+use clap::ArgMatches;
 
-use hyper::Client;
-use slippy_map_tiles::{Tile, BBox};
+use slippy_map_tiles::Tile;
 use iter_progress::ProgressableIter;
 
 use utils::download_url_and_save_to_file;

@@ -5,15 +5,11 @@ extern crate simple_parallel;
 extern crate iter_progress;
 extern crate chrono;
 
-use std::io::Read;
-use std::fs;
 use std::path::Path;
-use std::io::Write;
 use std::os::unix::fs::MetadataExt;
 
-use clap::{Arg, App, ArgMatches};
-use hyper::Client;
-use slippy_map_tiles::{Tile, BBox};
+use clap::ArgMatches;
+use slippy_map_tiles::Tile;
 use iter_progress::ProgressableIter;
 use chrono::{DateTime, UTC, FixedOffset};
 
