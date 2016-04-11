@@ -3,7 +3,6 @@ extern crate clap;
 extern crate rustc_serialize;
 extern crate slippy_map_tiles;
 extern crate regex;
-extern crate tilejson;
 
 use std::io::Read;
 use std::fs;
@@ -18,10 +17,9 @@ use hyper::mime::{Mime, TopLevel, SubLevel};
 
 use regex::Regex;
 
-use tilejson::TileJSON;
 use rustc_serialize::json;
 
-use clap::{Arg, App, ArgMatches};
+use clap::ArgMatches;
 
 //use rustc_serialize::json;
 

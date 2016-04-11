@@ -11,7 +11,7 @@ use std::os::unix::fs::MetadataExt;
 use clap::ArgMatches;
 use slippy_map_tiles::Tile;
 use iter_progress::ProgressableIter;
-use chrono::{DateTime, UTC, FixedOffset};
+use chrono::{DateTime, FixedOffset};
 
 use utils::download_url_and_save_to_file;
 

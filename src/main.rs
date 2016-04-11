@@ -10,7 +10,7 @@ extern crate simple_parallel;
 extern crate iter_progress;
 extern crate chrono;
 
-use clap::{Arg, App, ArgMatches, SubCommand};
+use clap::{Arg, App, SubCommand};
 
 mod cache;
 mod serve;
@@ -22,7 +22,6 @@ use cache::cache;
 use serve::serve;
 use stuffer::stuffer;
 use expire::expire;
-
 
 fn main() {
 

@@ -8,13 +8,12 @@ extern crate slippy_map_tiles;
 use std::io::Read;
 use std::fs;
 use std::path::Path;
-use std::io::Write;
 
 use iron::{Iron, Request, Response, IronResult};
 use iron::status;
 use router::{Router};
 use hyper::Client;
-use clap::{Arg, App, ArgMatches};
+use clap::ArgMatches;
 use rustc_serialize::json;
 
 use slippy_map_tiles::Tile;
