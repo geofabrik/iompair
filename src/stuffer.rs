@@ -17,7 +17,7 @@ use slippy_map_tiles::{Tile, BBox};
 use iter_progress::ProgressableIter;
 use chrono::{DateTime, UTC, FixedOffset};
 
-use utils::download_url;
+use utils::{download_url, save_to_file};
 
 fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool, files_older_than: &Option<DateTime<FixedOffset>>) {
     let x = tile.x();
@@ -51,17 +51,7 @@ fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool,
                 // Do nothing
             },
             Some(vector_tile_contents) => {
-                let parent_directory = this_tile_tc_path.parent();
-                if parent_directory.is_none() { return; }
-                let parent_directory = parent_directory.unwrap();
-                if ! parent_directory.exists() {
-                    fs::create_dir_all(parent_directory);
-                }
-
-                let mut file = fs::File::create(this_tile_tc_path);
-                if file.is_err() { return; }
-                let mut file = file.unwrap();
-                file.write_all(&vector_tile_contents);
+                save_to_file(this_tile_tc_path, &vector_tile_contents);
             }
         }
     }

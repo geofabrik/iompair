@@ -1,6 +1,9 @@
 extern crate hyper;
 
 use std::io::Read;
+use std::path::Path;
+use std::fs;
+use std::io::Write;
 
 use hyper::Client;
 
@@ -18,4 +21,21 @@ pub fn download_url(url: &str) -> Option<Vec<u8>> {
     result.read_to_end(&mut file_contents);
 
     Some(file_contents)
+}
+
+/// Saves this bytes to this path
+/// All errors are silently ignored
+pub fn save_to_file(path: &Path, bytes: &Vec<u8>) {
+    let parent_directory = path.parent();
+    if parent_directory.is_none() { return; }
+    let parent_directory = parent_directory.unwrap();
+    if ! parent_directory.exists() {
+        fs::create_dir_all(parent_directory);
+    }
+
+    let mut file = fs::File::create(path);
+    if file.is_err() { return; }
+    let mut file = file.unwrap();
+    file.write_all(bytes);
+
 }
