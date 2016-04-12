@@ -94,14 +94,20 @@ pub fn cache(options: &ArgMatches) {
             file.read_to_end(&mut vector_tile_contents);
             println!("Cache hit {}/{}/{}", z, x, y);
         } else {
-            vector_tile_contents = download_url(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)).unwrap();
-            save_to_file(this_tile_tc_path, &vector_tile_contents);
-            println!("Cache miss {}/{}/{} Downloaded and saved in {:?}", z, x, y, this_tile_tc_path);
+            match download_url(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)) {
+                None => {
+                    println!("Cache miss {}/{}/{} and error downloading file", z, x, y);
+                    return Ok(Response::with((status::InternalServerError, vector_tile_contents)));
+                },
+                Some(vector_tile_contents) => {
+                    save_to_file(this_tile_tc_path, &vector_tile_contents);
+                    println!("Cache miss {}/{}/{} Downloaded and saved in {:?}", z, x, y, this_tile_tc_path);
+                }
+            }
         }
 
         // FIXME correct Content-Type
         Ok(Response::with((status::Ok, vector_tile_contents)))
-
     }
 
     println!("Serving on port {}", port);
