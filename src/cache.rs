@@ -8,6 +8,7 @@ extern crate slippy_map_tiles;
 use std::io::Read;
 use std::fs;
 use std::path::Path;
+use std::process::exit;
 
 use iron::{Iron, Request, Response, IronResult};
 use iron::status;
@@ -48,7 +49,13 @@ pub fn cache(options: &ArgMatches) {
     let mut tilejson_contents = String::new();
     result.read_to_string(&mut tilejson_contents).unwrap();
     //println!("Got this tilejson\n{}", tilejson_contents);
-    let tilejson_0 = json::Json::from_str(&tilejson_contents).unwrap();
+    let tilejson_0 = json::Json::from_str(&tilejson_contents);
+    if tilejson_0.is_err() {
+        println!("TileJSON at {}/index.json is not a valid JSON file, error: {:?}. Contents: {:?} Exiting.", upstream_url, tilejson_0, tilejson_contents);
+        exit(1);
+    }
+    let tilejson_0 = tilejson_0.unwrap();
+
     let mut tilejson = tilejson_0.as_object().unwrap().to_owned();
     tilejson.insert("tiles".to_owned(), new_tiles);
 
