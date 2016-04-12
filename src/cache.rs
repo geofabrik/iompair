@@ -12,6 +12,7 @@ use std::process::exit;
 
 use iron::{Iron, Request, Response, IronResult};
 use iron::status;
+use iron::headers::{CacheControl, CacheDirective};
 use router::{Router};
 use hyper::Client;
 use clap::ArgMatches;
@@ -107,7 +108,9 @@ pub fn cache(options: &ArgMatches) {
         }
 
         // FIXME correct Content-Type
-        Ok(Response::with((status::Ok, vector_tile_contents)))
+        let mut response = Response::with((status::Ok, vector_tile_contents));
+        response.headers.set(CacheControl(vec![CacheDirective::Private, CacheDirective::NoCache, CacheDirective::MaxAge(0)]));
+        Ok(response)
     }
 
     println!("Serving on port {}", port);
