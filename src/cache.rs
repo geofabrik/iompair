@@ -92,9 +92,11 @@ pub fn cache(options: &ArgMatches) {
         if this_tile_tc_path.exists() {
             let mut file = fs::File::open(this_tile_tc_path).unwrap();
             file.read_to_end(&mut vector_tile_contents);
+            println!("Cache hit {}/{}/{}", z, x, y);
         } else {
             vector_tile_contents = download_url(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)).unwrap();
             save_to_file(this_tile_tc_path, &vector_tile_contents);
+            println!("Cache miss {}/{}/{} Downloaded and saved in {:?}", z, x, y, this_tile_tc_path);
         }
 
         // FIXME correct Content-Type
