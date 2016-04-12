@@ -19,7 +19,7 @@ use rustc_serialize::json;
 
 use slippy_map_tiles::Tile;
 
-use utils::download_url_and_save_to_file;
+use utils::{download_url, save_to_file};
 
 pub fn cache(options: &ArgMatches) {
 
@@ -93,7 +93,8 @@ pub fn cache(options: &ArgMatches) {
             let mut file = fs::File::open(this_tile_tc_path).unwrap();
             file.read_to_end(&mut vector_tile_contents);
         } else {
-            download_url_and_save_to_file(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y), this_tile_tc_path);
+            vector_tile_contents = download_url(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)).unwrap();
+            save_to_file(this_tile_tc_path, &vector_tile_contents);
         }
 
         // FIXME correct Content-Type
