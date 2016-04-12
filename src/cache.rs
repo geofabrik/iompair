@@ -48,7 +48,6 @@ pub fn cache(options: &ArgMatches) {
     // Some back and forth to decode, replace and encode to get the new tilejson string
     let mut tilejson_contents = String::new();
     result.read_to_string(&mut tilejson_contents).unwrap();
-    //println!("Got this tilejson\n{}", tilejson_contents);
     let tilejson_0 = json::Json::from_str(&tilejson_contents);
     if tilejson_0.is_err() {
         println!("TileJSON at {}/index.json is not a valid JSON file, error: {:?}. Contents: {:?} Exiting.", upstream_url, tilejson_0, tilejson_contents);
