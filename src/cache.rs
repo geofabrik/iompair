@@ -13,6 +13,8 @@ use std::process::exit;
 use iron::{Iron, Request, Response, IronResult};
 use iron::status;
 use iron::headers::{CacheControl, CacheDirective};
+use hyper::header::{Headers, ContentType};
+use hyper::mime::{Mime, TopLevel, SubLevel};
 use router::{Router};
 use hyper::Client;
 use clap::ArgMatches;
@@ -107,9 +109,9 @@ pub fn cache(options: &ArgMatches) {
             }
         }
 
-        // FIXME correct Content-Type
         let mut response = Response::with((status::Ok, vector_tile_contents));
         response.headers.set(CacheControl(vec![CacheDirective::Private, CacheDirective::NoCache, CacheDirective::MaxAge(0)]));
+        response.headers.set(ContentType(Mime(TopLevel::Application, SubLevel::Ext("x-protobuf".to_owned()), vec![])));
         Ok(response)
     }
 
