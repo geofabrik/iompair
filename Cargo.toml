@@ -8,7 +8,7 @@ version = "0.3.0"
 
 [dependencies]
 clap = "*"
-hyper = "*"
+hyper = "0.8"
 iron = "*"
 regex = "0.1"
 router = "*"
