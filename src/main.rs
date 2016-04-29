@@ -26,7 +26,9 @@ use expire::expire;
 fn main() {
 
     let options = App::new("iompair")
+        .about("Work with vector tiles")
         .subcommand(SubCommand::with_name("cache")
+            .about("Cache an upstream vector tile source")
             .arg(Arg::with_name("port").short("p").long("port")
                  .takes_value(true).required(true)
                  .help("Port to listen on").value_name("PORT"))
@@ -41,6 +43,7 @@ fn main() {
                  .help("Only serve zoom up to this level").value_name("ZOOM"))
             )
         .subcommand(SubCommand::with_name("serve")
+            .about("Serve a tile cache directory")
             .arg(Arg::with_name("port").short("p").long("port")
                  .takes_value(true).required(true)
                  .help("Port to listen on").value_name("PORT"))
@@ -52,6 +55,7 @@ fn main() {
                  .help("Maximum zoom to preten").value_name("ZOOM"))
             )
         .subcommand(SubCommand::with_name("stuffer")
+            .about("Populate a tile cache directory with all the tiles in an area")
             .setting(clap::AppSettings::AllowLeadingHyphen)
             .arg(Arg::with_name("upstream_url").short("u").long("upstream")
                  .takes_value(true).required(true)
@@ -84,6 +88,7 @@ fn main() {
                  .help("If using --always-download, only download a file that's missing or older than this RFC3339 datetime"))
             )
         .subcommand(SubCommand::with_name("expire")
+            .about("Update a tilecache directory from upstream with osm2pgsql expiry tile list")
             .arg(Arg::with_name("upstream_url").short("u").long("upstream")
                  .takes_value(true).required(true)
                  .help("URL of the upstream vector tiles producer").value_name("URL"))
