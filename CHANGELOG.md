@@ -1,3 +1,28 @@
+<a name="v0.4.0"></a>
+## v0.4.0 (2016-05-25)
+
+
+#### Bug Fixes
+
+*   Correctly look at file age ([a7a9d51c](a7a9d51c))
+*   Support current version of iter-progress ([b7236fbd](b7236fbd))
+* **cache:**
+  *  Set content-type header on responses ([5aed8bca](5aed8bca))
+  *  Don't panic if you cannot download the tile, print error and continue ([7c71f53b](7c71f53b))
+  *  Return file contents after saving ([14830392](14830392))
+
+#### Features
+
+*   Add --files-older-than to stuffer ([ab75f81d](ab75f81d))
+* **cache:**
+  *  Add cache control headers to response to limit caching ([e83bd472](e83bd472))
+  *  Print if there's a cache miss/hit ([24e372d4](24e372d4))
+  *  Print error if TileJSON is invalid ([524cf9f9](524cf9f9))
+  *  Add --maxzoom option to test overzooming ([bc367ba9](bc367ba9))
+* **serve:**  Add --urlprefix to override the URL in tilejson output ([ad54840a](ad54840a))
+
+
+
 <a name="v0.3.0"></a>
 ## v0.3.0 (2016-03-22)
 

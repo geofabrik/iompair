@@ -4,9 +4,10 @@ description = "Work with Slippy map tile names, found in OpenStreetMap"
 keywords = ["openstreetmap", "osm", "vectortiles"]
 license = "AGPL-3.0"
 name = "iompair"
-version = "0.3.0"
+version = "0.4.0"
 
 [dependencies]
+chrono = "0.2"
 clap = "*"
 hyper = "0.8"
 iron = "*"
@@ -14,7 +15,6 @@ regex = "0.1"
 router = "*"
 rustc-serialize = "*"
 simple_parallel = "*"
-"chrono" = "0.2"
 
 [dependencies.iter-progress]
 path = "../iter-progress/"
