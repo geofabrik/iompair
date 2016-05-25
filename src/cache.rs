@@ -98,11 +98,11 @@ pub fn cache(options: &ArgMatches) {
             println!("Cache hit {}/{}/{}", z, x, y);
         } else {
             match download_url(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)) {
-                None => {
+                Err(_) => {
                     println!("Cache miss {}/{}/{} and error downloading file", z, x, y);
                     return Ok(Response::with((status::InternalServerError, vector_tile_contents)));
                 },
-                Some(vector_tile_contents) => {
+                Ok(vector_tile_contents) => {
                     save_to_file(this_tile_tc_path, &vector_tile_contents);
                     println!("Cache miss {}/{}/{} Downloaded and saved in {:?}", z, x, y, this_tile_tc_path);
                 }

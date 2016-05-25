@@ -4,44 +4,63 @@ use std::io::Read;
 use std::path::Path;
 use std::fs;
 use std::io::Write;
+use std::io;
 
 use hyper::Client;
 
-/// Given a URL, it'll download the URL and return the bytes. None if there was an error.
-pub fn download_url(url: &str) -> Option<Vec<u8>> {
+#[derive(Debug)]
+pub enum IompairError {
+    DownloadError(hyper::Error),
+    Non200ResponseError(hyper::status::StatusCode),
+    ReadResponseError(io::Error),
+    
+    NoParentDirectoryError,
+    OpenFileError(io::Error),
+    WriteToFileError(io::Error),
+    CreateDirsError(io::Error),
+}
+
+// TODO should we impl error::Error for IompairError ? Why?
+
+//impl From<hyper::Error> for IompairError {
+//    fn from(err: hyper::Error) -> IompairError { IompairError::DownloadError(err)  }
+//}
+
+
+/// Given a URL, it'll download the URL and return the bytes, or an error of what happened
+pub fn download_url(url: &str) -> Result<Vec<u8>, IompairError> {
     let client = Client::new();
-    let result = client.get(url).send();
-    if result.is_err() { return None; }
-    let mut result = result.unwrap();
+    let mut result = try!(client.get(url).send().map_err(IompairError::DownloadError));
     if result.status != hyper::status::StatusCode::Ok {
-        return None;
+        return Err(IompairError::Non200ResponseError(result.status));
     }
 
     let mut file_contents: Vec<u8> = Vec::new();
-    result.read_to_end(&mut file_contents);
+    try!(result.read_to_end(&mut file_contents).map_err(IompairError::ReadResponseError));
 
-    Some(file_contents)
+    Ok(file_contents)
 }
 
 /// Saves this bytes to this path
-/// All errors are silently ignored
-pub fn save_to_file(path: &Path, bytes: &Vec<u8>) {
-    let parent_directory = path.parent();
-    if parent_directory.is_none() { return; }
-    let parent_directory = parent_directory.unwrap();
+/// Errors are returned
+pub fn save_to_file(path: &Path, bytes: &Vec<u8>) -> Result<(), IompairError> {
+    let parent_directory = try!(path.parent().ok_or(IompairError::NoParentDirectoryError));
+    //if parent_directory.is_none() { return; }
+    //let parent_directory = parent_directory.unwrap();
     if ! parent_directory.exists() {
-        fs::create_dir_all(parent_directory);
+        try!(fs::create_dir_all(parent_directory).map_err(IompairError::CreateDirsError));
     }
 
-    let file = fs::File::create(path);
-    if file.is_err() { return; }
-    let mut file = file.unwrap();
-    file.write_all(bytes);
+    let mut file = try!(fs::File::create(path).map_err(IompairError::OpenFileError));
+    try!(file.write_all(bytes).map_err(IompairError::WriteToFileError));
+
+    Ok(())
 }
 
-/// Downloads the URL and if it went OK, saves the contents to path
-pub fn download_url_and_save_to_file(url: &str, path: &Path) {
-    download_url(url).map(|contents| {
-        save_to_file(path, &contents);
-    });
+/// Downloads the URL and if it went OK, saves the contents to path. Returns Error if something
+/// went wrong.
+pub fn download_url_and_save_to_file(url: &str, path: &Path) -> Result<(), IompairError> {
+    let contents = try!(download_url(url));
+
+    save_to_file(path, &contents)
 }
