@@ -35,7 +35,9 @@ fn dl_tile_if_older(tile: Tile, tc_path: &str, upstream_url: &str, expiry_mtime:
         };
 
     if should_dl {
-        download_url_and_save_to_file(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y), this_tile_tc_path);
+        download_url_and_save_to_file(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y), this_tile_tc_path).unwrap_or_else(|e| {
+            println!("Error occured when downloading {}/{}/{}: {:?}", z, x, y, e);
+        });
     }
 
 }
