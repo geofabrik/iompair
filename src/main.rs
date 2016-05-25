@@ -104,6 +104,9 @@ fn main() {
             .arg(Arg::with_name("expire_path").short("e").long("expire-path")
                  .takes_value(true).required(true)
                  .help("Directory which stores the expire-*.txt files").value_name("PATH"))
+            .arg(Arg::with_name("wait_between_runs").short("w").long("wait")
+                 .takes_value(true).required(false)
+                 .help("How long (in SEC) to wait between checks of the expire directory. Default 60 sec").value_name("SEC"))
             )
         .get_matches();
 

@@ -49,6 +49,8 @@ pub fn expire(options: &ArgMatches) {
 
     let expire_path = options.value_of("expire_path").unwrap().to_string();
 
+    let wait_between_runs: u32 = options.value_of("wait_between_runs").unwrap_or("60").parse().unwrap();
+
 
     println!("Starting {} threads", threads);
     let mut pool = simple_parallel::Pool::new(threads);
@@ -64,7 +66,7 @@ pub fn expire(options: &ArgMatches) {
         if expire_filenames.len() == 0 {
             // Nothing to do, sleeping for 1 minute
             //println!("Nothing to do");
-            sleep_ms(60 * 1000);
+            sleep_ms(wait_between_runs * 1000);
             continue;
         }
 
