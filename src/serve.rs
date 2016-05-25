@@ -30,19 +30,21 @@ pub fn serve(options: &ArgMatches) {
     let port = options.value_of("port").unwrap().to_string();
     let tc_path = options.value_of("tc_path").unwrap().to_string();
     let maxzoom: u8 = options.value_of("maxzoom").unwrap_or("14").parse().unwrap();
+    let urlprefix = options.value_of("urlprefix").unwrap_or(&format!("http://localhost:{}/", port)).to_string();
     // TODO make tc_path absolute
     
     // TODO read in tilejson file, change it and save it. Don't regenerate every request.
 
     println!("Serving on port {}", port);
     let uri = format!("127.0.0.1:{}", port);
-    Server::http(&uri[..]).unwrap().handle(move |req: Request, res: Response| { base_handler(req, res, &tc_path, &port, maxzoom) }).unwrap();
+    Server::http(&uri[..]).unwrap().handle(move |req: Request, res: Response| { base_handler(req, res, &tc_path, &port, maxzoom, &urlprefix) }).unwrap();
 }
 
-fn tilejson_contents(tc_path: &str, port: &str, maxzoom: u8) -> String {
-    let new_tiles = json::Json::from_str(&format!("[\"http://localhost:{}/{{z}}/{{x}}/{{y}}.pbf\"]", port)).unwrap();
+fn tilejson_contents(tc_path: &str, urlprefix: &str, maxzoom: u8) -> String {
+    let new_tiles = json::Json::from_str(&format!("[\"{}{{z}}/{{x}}/{{y}}.pbf\"]", urlprefix)).unwrap();
     let zoom_element = json::Json::U64(maxzoom as u64);
 
+    // FIXME don't fall over if there is no file
     let mut f = File::open(format!("{}/index.json", tc_path)).unwrap();
     let mut s = String::new();
     f.read_to_string(&mut s);
@@ -57,7 +59,7 @@ fn tilejson_contents(tc_path: &str, port: &str, maxzoom: u8) -> String {
     new_tilejson_contents
 }
 
-fn base_handler(req: Request, mut res: Response, tc_path: &str, port: &str, maxzoom: u8) {
+fn base_handler(req: Request, mut res: Response, tc_path: &str, port: &str, maxzoom: u8, urlprefix: &str) {
     let mut url: String = String::new();
     if let hyper::uri::RequestUri::AbsolutePath(ref u) = req.uri {
         url = u.clone();
@@ -65,7 +67,7 @@ fn base_handler(req: Request, mut res: Response, tc_path: &str, port: &str, maxz
         
     match parse_url(&url, maxzoom) {
         URL::Tilejson => {
-            tilejson_handler(res, tc_path, port, maxzoom);
+            tilejson_handler(res, tc_path, urlprefix, maxzoom);
         },
         URL::Invalid => {
             *res.status_mut() = hyper::status::StatusCode::NotFound;
@@ -134,8 +136,8 @@ fn tile_handler(mut res: Response, tc_path: &str, z: u8, x: u32, y: u32, ext: St
 
 }
 
-fn tilejson_handler(res: Response, tc_path: &str, port: &str, maxzoom: u8) {
-    let json = tilejson_contents(tc_path, port, maxzoom);
+fn tilejson_handler(res: Response, tc_path: &str, urlprefix: &str, maxzoom: u8) {
+    let json = tilejson_contents(tc_path, urlprefix, maxzoom);
     res.send(json.as_bytes());
 }
 
