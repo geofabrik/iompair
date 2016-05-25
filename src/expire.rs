@@ -63,7 +63,7 @@ pub fn expire(options: &ArgMatches) {
 
         if expire_filenames.len() == 0 {
             // Nothing to do, sleeping for 1 minute
-            println!("Nothing to do");
+            //println!("Nothing to do");
             sleep_ms(60 * 1000);
             continue;
         }
