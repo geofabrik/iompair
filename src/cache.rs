@@ -13,7 +13,7 @@ use std::process::exit;
 use iron::{Iron, Request, Response, IronResult};
 use iron::status;
 use iron::headers::{CacheControl, CacheDirective};
-use hyper::header::{Headers, ContentType};
+use hyper::header::ContentType;
 use hyper::mime::{Mime, TopLevel, SubLevel};
 use router::{Router};
 use hyper::Client;
@@ -95,6 +95,7 @@ pub fn cache(options: &ArgMatches) {
         if this_tile_tc_path.exists() {
             let mut file = fs::File::open(this_tile_tc_path).unwrap();
             file.read_to_end(&mut vector_tile_contents);
+            //try!(file.read_to_end(&mut vector_tile_contents).map_err(|e| { IronError::new(e, Response::with(status::InternalServerError)) } ));
             println!("Cache hit {}/{}/{}", z, x, y);
         } else {
             match download_url(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)) {

@@ -13,9 +13,9 @@ use slippy_map_tiles::Tile;
 use iter_progress::ProgressableIter;
 use chrono::{DateTime, FixedOffset};
 
-use utils::download_url_and_save_to_file;
+use utils::{download_url_and_save_to_file, IompairError};
 
-fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool, files_older_than: &Option<DateTime<FixedOffset>>) {
+fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool, files_older_than: &Option<DateTime<FixedOffset>>) -> Result<(), IompairError> {
     let x = tile.x();
     let y = tile.y();
     let z = tile.zoom();
@@ -42,12 +42,15 @@ fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool,
     };
 
     if should_download {
-        download_url_and_save_to_file(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y), this_tile_tc_path);
+        try!(download_url_and_save_to_file(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y), this_tile_tc_path));
     }
+
+    Ok(())
 }
 
-fn dl_tilejson(tc_path: &str, upstream_url: &str) {
-    download_url_and_save_to_file(&format!("{}/index.json", upstream_url), Path::new(&format!("{}/index.json", tc_path)));
+fn dl_tilejson(tc_path: &str, upstream_url: &str) -> Result<(), IompairError> {
+    try!(download_url_and_save_to_file(&format!("{}/index.json", upstream_url), Path::new(&format!("{}/index.json", tc_path))));
+    Ok(())
 }
 
 
@@ -69,7 +72,11 @@ pub fn stuffer(options: &ArgMatches) {
 
 
     // Download the tilejson file and save it for later.
-    dl_tilejson(&tc_path, &upstream_url);
+    dl_tilejson(&tc_path, &upstream_url).unwrap_or_else(|e| {
+        println!("Error occured when downloading tilejson: {:?}", e);
+        println!("Aborting");
+        return;
+    });
     println!("Downloaded TileJSON");
 
     println!("Starting {} threads", threads);
@@ -82,7 +89,9 @@ pub fn stuffer(options: &ArgMatches) {
         let iter = Box::new(Tile::all_to_zoom(max_zoom).filter(|&t| { t.zoom() >= min_zoom }));
         pool.for_(iter.progress(), |(state, tile)| {
             state.print_every_n_sec(5., format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
-            dl_tile(tile, &tc_path, &upstream_url, always_download, &files_older_than);
+            dl_tile(tile, &tc_path, &upstream_url, always_download, &files_older_than).unwrap_or_else(|e| {
+                println!("Error occured when downloading tile {:?}: {:?}", tile, e);
+            });
         });
     } else {
         match slippy_map_tiles::BBox::new(top, left, bottom, right) {
@@ -96,7 +105,9 @@ pub fn stuffer(options: &ArgMatches) {
                 pool.for_(iter.progress(), |(state, tile)| {
                     state.print_every_n_sec(5., format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
                     //state.print_every_sec(100., format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
-                    dl_tile(tile, &tc_path, &upstream_url, always_download, &files_older_than);
+                    dl_tile(tile, &tc_path, &upstream_url, always_download, &files_older_than).unwrap_or_else(|e| {
+                        println!("Error occured when downloading tile {:?}: {:?}", tile, e);
+                    });
                 });
             },
         }

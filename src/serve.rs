@@ -25,6 +25,11 @@ use clap::ArgMatches;
 
 use slippy_map_tiles::Tile;
 
+#[derive(Debug)]
+enum IompairTileJsonError {
+    ReadFileError(::std::io::Error),
+}
+
 pub fn serve(options: &ArgMatches) {
 
     let port = options.value_of("port").unwrap().to_string();
@@ -37,17 +42,18 @@ pub fn serve(options: &ArgMatches) {
 
     println!("Serving on port {}", port);
     let uri = format!("127.0.0.1:{}", port);
-    Server::http(&uri[..]).unwrap().handle(move |req: Request, res: Response| { base_handler(req, res, &tc_path, &port, maxzoom, &urlprefix) }).unwrap();
+    Server::http(&uri[..]).unwrap().handle(move |req: Request, res: Response| { base_handler(req, res, &tc_path, maxzoom, &urlprefix) }).unwrap();
 }
 
-fn tilejson_contents(tc_path: &str, urlprefix: &str, maxzoom: u8) -> String {
+fn tilejson_contents(tc_path: &str, urlprefix: &str, maxzoom: u8) -> Result<String, IompairTileJsonError> {
+    // FIXME Remove the unwraps and replace with proper error handling
     let new_tiles = json::Json::from_str(&format!("[\"{}{{z}}/{{x}}/{{y}}.pbf\"]", urlprefix)).unwrap();
     let zoom_element = json::Json::U64(maxzoom as u64);
 
     // FIXME don't fall over if there is no file
     let mut f = File::open(format!("{}/index.json", tc_path)).unwrap();
     let mut s = String::new();
-    f.read_to_string(&mut s);
+    try!(f.read_to_string(&mut s).map_err(IompairTileJsonError::ReadFileError));
 
     // Some back and forth to decode, replace and encode to get the new tilejson string
     let tilejson_0 = json::Json::from_str(&s).unwrap();
@@ -56,10 +62,10 @@ fn tilejson_contents(tc_path: &str, urlprefix: &str, maxzoom: u8) -> String {
     tilejson.insert("maxzoom".to_owned(), zoom_element);
     let new_tilejson_contents: String = json::encode(&tilejson).unwrap();
 
-    new_tilejson_contents
+    Ok(new_tilejson_contents)
 }
 
-fn base_handler(req: Request, mut res: Response, tc_path: &str, port: &str, maxzoom: u8, urlprefix: &str) {
+fn base_handler(req: Request, mut res: Response, tc_path: &str, maxzoom: u8, urlprefix: &str) {
     let mut url: String = String::new();
     if let hyper::uri::RequestUri::AbsolutePath(ref u) = req.uri {
         url = u.clone();
@@ -126,19 +132,37 @@ fn tile_handler(mut res: Response, tc_path: &str, z: u8, x: u32, y: u32, ext: St
     
     if this_tile_tc_path.exists() {
         let mut file = fs::File::open(this_tile_tc_path).unwrap();
-        file.read_to_end(&mut vector_tile_contents);
+        match file.read_to_end(&mut vector_tile_contents) {
+            Ok(_) => {},
+            Err(e) => {
+                println!("Error when trying to send vectortile contents to client: {:?}", e);
+                *res.status_mut() = hyper::status::StatusCode::InternalServerError;
+                return;
+            },
+        }
     } else {
         *res.status_mut() = hyper::status::StatusCode::NotFound;
     }
 
     res.headers_mut().set(ContentType(Mime(TopLevel::Application, SubLevel::Ext("x-protobuf".to_owned()), vec![])));
-    res.send(&vector_tile_contents);
+    res.send(&vector_tile_contents).unwrap_or_else(|e| {
+        println!("Error when trying to send tilejson to client: {:?}", e);
+    });
 
 }
 
-fn tilejson_handler(res: Response, tc_path: &str, urlprefix: &str, maxzoom: u8) {
-    let json = tilejson_contents(tc_path, urlprefix, maxzoom);
-    res.send(json.as_bytes());
+fn tilejson_handler(mut res: Response, tc_path: &str, urlprefix: &str, maxzoom: u8) {
+    match tilejson_contents(tc_path, urlprefix, maxzoom) {
+        Err(e) => {
+            println!("Error when reading tilejson file to serve up: {:?}", e);
+            *res.status_mut() = hyper::status::StatusCode::InternalServerError;
+        },
+        Ok(json) => {
+            res.send(json.as_bytes()).unwrap_or_else(|e| {
+                println!("Error when trying to send tilejson to client: {:?}", e);
+            });
+        }
+    };
 }
 
 mod test {

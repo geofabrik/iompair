@@ -10,7 +10,8 @@ use std::io::BufReader;
 use std::io::prelude::*;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::raw::time_t;
-use std::thread::sleep_ms;
+use std::thread::sleep;
+use std::time::Duration;
 
 use clap::ArgMatches;
 
@@ -51,7 +52,7 @@ pub fn expire(options: &ArgMatches) {
 
     let expire_path = options.value_of("expire_path").unwrap().to_string();
 
-    let wait_between_runs: u32 = options.value_of("wait_between_runs").unwrap_or("60").parse().unwrap();
+    let wait_between_runs = options.value_of("wait_between_runs").unwrap_or("60").parse().unwrap();
 
 
     println!("Starting {} threads", threads);
@@ -66,9 +67,8 @@ pub fn expire(options: &ArgMatches) {
         let expire_filenames: Vec<_> = expire_directory.read_dir().unwrap().filter_map(|entry| { entry.ok() }).filter(|entry| { let is_file = entry.file_type().unwrap().is_file() ; let file_name = entry.path().file_name().unwrap().to_str().unwrap().to_string(); is_file && file_name.starts_with("expire-") && file_name.ends_with(".txt") }).map(|entry| { entry.path() }).collect();
 
         if expire_filenames.len() == 0 {
-            // Nothing to do, sleeping for 1 minute
-            //println!("Nothing to do");
-            sleep_ms(wait_between_runs * 1000);
+            // Nothing to do, sleeping
+            sleep(Duration::new(wait_between_runs, 0));
             continue;
         }
 
