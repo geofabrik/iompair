@@ -1,5 +1,3 @@
-extern crate iron;
-extern crate router;
 extern crate hyper;
 extern crate clap;
 extern crate rustc_serialize;
@@ -10,19 +8,20 @@ use std::fs;
 use std::path::Path;
 use std::process::exit;
 
-use iron::{Iron, Request, Response, IronResult};
-use iron::status;
-use iron::headers::{CacheControl, CacheDirective};
+use hyper::Server;
+use hyper::server::Request;
+use hyper::server::Response;
 use hyper::header::ContentType;
 use hyper::mime::{Mime, TopLevel, SubLevel};
-use router::{Router};
 use hyper::Client;
+use hyper::status::StatusCode;
+
 use clap::ArgMatches;
 use rustc_serialize::json;
 
 use slippy_map_tiles::Tile;
 
-use utils::{download_url, save_to_file};
+use utils::{download_url, save_to_file, parse_url, URL};
 
 pub fn cache(options: &ArgMatches) {
 
@@ -32,10 +31,10 @@ pub fn cache(options: &ArgMatches) {
     let maxzoom = options.value_of("maxzoom").and_then(|x| { x.parse::<u8>().ok() });
     // TODO make tc_path absolute
 
-    let mut router = Router::new();
-
     // get the tilejson details
     let client = Client::new();
+
+    //let mut router = Router::new();
 
     // FIXME split this into functions
     // FIXME use the URLs in the tile json for fetching tiles
@@ -67,23 +66,14 @@ pub fn cache(options: &ArgMatches) {
 
     let new_tilejson_contents: String = json::encode(&tilejson).unwrap();
 
-    router.get("/index.json", move |r: &mut Request| tilejson_handler(r, &new_tilejson_contents));
-
-    fn tilejson_handler(_: &mut Request, tilejson_contents: &str) -> IronResult<Response> {
-        Ok(Response::with((status::Ok, tilejson_contents)))
+    fn tilejson_handler(res: Response, tilejson_contents: &str) {
+        res.send(tilejson_contents.as_bytes());
     }
 
     // Handler for tiles
-    router.get("/:z/:x/:y", move |r: &mut Request| tile_handler(r, &upstream_url, &tc_path));
 
-    fn tile_handler(req: &mut Request, upstream_url: &str, tc_path: &str) -> IronResult<Response> {
+    fn tile_handler(mut res: Response, tc_path: &str, z: u8, x: u32, y: u32, ext: String, upstream_url: &str) {
         // FIXME parse properly and return 403 if wrong
-        let z: u8 = req.extensions.get::<Router>().unwrap().find("z").unwrap().parse().unwrap();
-        let x: u32 = req.extensions.get::<Router>().unwrap().find("x").unwrap().parse().unwrap();
-
-        let y_full = req.extensions.get::<Router>().unwrap().find("y").unwrap();
-        let y_parts = y_full.split(".").nth(0).unwrap();
-        let y: u32 = y_parts.parse().unwrap();
 
         let tile = Tile::new(z, x, y).unwrap();
         let path = format!("{}/{}", tc_path, tile.tc_path("pbf"));
@@ -101,7 +91,8 @@ pub fn cache(options: &ArgMatches) {
             match download_url(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)) {
                 Err(_) => {
                     println!("Cache miss {}/{}/{} and error downloading file", z, x, y);
-                    return Ok(Response::with((status::InternalServerError, vector_tile_contents)));
+                    *res.status_mut() = StatusCode::InternalServerError;
+                    return;
                 },
                 Ok(vector_tile_contents) => {
                     save_to_file(this_tile_tc_path, &vector_tile_contents);
@@ -110,12 +101,31 @@ pub fn cache(options: &ArgMatches) {
             }
         }
 
-        let mut response = Response::with((status::Ok, vector_tile_contents));
-        response.headers.set(CacheControl(vec![CacheDirective::Private, CacheDirective::NoCache, CacheDirective::MaxAge(0)]));
-        response.headers.set(ContentType(Mime(TopLevel::Application, SubLevel::Ext("x-protobuf".to_owned()), vec![])));
-        Ok(response)
+        *res.status_mut() = StatusCode::Ok;
+        //res.headers.set(CacheControl(vec![CacheDirective::Private, CacheDirective::NoCache, CacheDirective::MaxAge(0)]));
+        //res.headers.set(ContentType(Mime(TopLevel::Application, SubLevel::Ext("x-protobuf".to_owned()), vec![])));
+        res.send(&vector_tile_contents);
+    }
+
+    fn base_handler(req: Request, mut res: Response, tc_path: &str, upstream_url: &str, tilejson_contents: &str) {
+        let mut url: String = String::new();
+        if let hyper::uri::RequestUri::AbsolutePath(ref u) = req.uri {
+            url = u.clone();
+        }
+            
+        match parse_url(&url, 22) {
+            URL::Tilejson => {
+                tilejson_handler(res, tilejson_contents);
+            },
+            URL::Invalid => {
+                *res.status_mut() = hyper::status::StatusCode::NotFound;
+            },
+            URL::Tile(z, x, y, ext) => {
+                tile_handler(res, tc_path, z, x, y, ext, upstream_url);
+            }
+        }
     }
 
     println!("Serving on port {}", port);
-    Iron::new(router).http(&*format!("localhost:{}", port)).unwrap();
+    Server::http(&*format!("localhost:{}", port)).unwrap().handle(move |req: Request, res: Response| { base_handler(req, res, &tc_path, &upstream_url, &tilejson_contents) }).unwrap();
 }

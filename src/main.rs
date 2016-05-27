@@ -1,5 +1,3 @@
-extern crate iron;
-extern crate router;
 extern crate hyper;
 extern crate clap;
 extern crate rustc_serialize;
