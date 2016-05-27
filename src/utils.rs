@@ -5,6 +5,7 @@ use std::path::Path;
 use std::fs;
 use std::io::Write;
 use std::io;
+use std::time::Duration;
 
 use hyper::Client;
 
@@ -29,7 +30,11 @@ pub enum IompairError {
 
 /// Given a URL, it'll download the URL and return the bytes, or an error of what happened
 pub fn download_url(url: &str) -> Result<Vec<u8>, IompairError> {
-    let client = Client::new();
+    let mut client = Client::new();
+    
+    // set the timeout to be 1 day
+    client.set_read_timeout(Some(Duration::new(1 * 24 * 60 * 60, 0)));
+    
     let mut result = try!(client.get(url).send().map_err(IompairError::DownloadError));
     if result.status != hyper::status::StatusCode::Ok {
         return Err(IompairError::Non200ResponseError(result.status));
