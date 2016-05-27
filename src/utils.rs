@@ -1,4 +1,7 @@
 extern crate hyper;
+extern crate regex;
+
+use regex::Regex;
 
 use std::io::Read;
 use std::path::Path;
@@ -67,3 +70,50 @@ pub fn download_url_and_save_to_file(url: &str, path: &Path) -> Result<(), Iompa
 
     save_to_file(path, &contents)
 }
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum URL {
+    Invalid,
+    Tilejson,
+    Tile(u8, u32, u32, String),
+}
+
+
+pub fn parse_url(url: &str, maxzoom: u8) -> URL {
+    // FIXME reuse regex
+    if url == "/index.json" {
+        URL::Tilejson
+    } else {
+        let re = Regex::new("/(?P<z>[0-9]?[0-9])/(?P<x>[0-9]+)/(?P<y>[0-9]+)\\.(?P<ext>.{3,4})").unwrap();
+        if let Some(caps) = re.captures(url) {
+            let z: u8 = caps.name("z").unwrap().parse().unwrap();
+            if z > maxzoom {
+                URL::Invalid
+            } else {
+                let x: u32 = caps.name("x").unwrap().parse().unwrap();
+                let y: u32 = caps.name("y").unwrap().parse().unwrap();
+                let ext: String = caps.name("ext").unwrap().to_owned();
+                URL::Tile(z, x, y, ext)
+            }
+        } else {
+            URL::Invalid
+        }
+    }
+}
+
+
+mod test {
+    #[test]
+    fn test_url_parse() {
+        use super::{parse_url, URL};
+
+        assert_eq!(parse_url("/", 22), URL::Invalid);
+        assert_eq!(parse_url("/index.json", 22), URL::Tilejson);
+        assert_eq!(parse_url("/2/12/12.png", 22), URL::Tile(2, 12, 12, "png".to_owned()));
+        assert_eq!(parse_url("/2/12/12.png", 1), URL::Invalid);
+
+    }
+
+
+}
+

@@ -25,6 +25,8 @@ use clap::ArgMatches;
 
 use slippy_map_tiles::Tile;
 
+use utils::{URL, parse_url};
+
 #[derive(Debug)]
 enum IompairTileJsonError {
     ReadFileError(::std::io::Error),
@@ -84,37 +86,6 @@ fn base_handler(req: Request, mut res: Response, tc_path: &str, maxzoom: u8, url
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-enum URL {
-    Invalid,
-    Tilejson,
-    Tile(u8, u32, u32, String),
-}
-
-
-fn parse_url(url: &str, maxzoom: u8) -> URL {
-    // FIXME reuse regex
-    if url == "/index.json" {
-        URL::Tilejson
-    } else {
-        let re = Regex::new("/(?P<z>[0-9]?[0-9])/(?P<x>[0-9]+)/(?P<y>[0-9]+)\\.(?P<ext>.{3,4})").unwrap();
-        if let Some(caps) = re.captures(url) {
-            let z: u8 = caps.name("z").unwrap().parse().unwrap();
-            if z > maxzoom {
-                URL::Invalid
-            } else {
-                let x: u32 = caps.name("x").unwrap().parse().unwrap();
-                let y: u32 = caps.name("y").unwrap().parse().unwrap();
-                let ext: String = caps.name("ext").unwrap().to_owned();
-                URL::Tile(z, x, y, ext)
-            }
-        } else {
-            URL::Invalid
-        }
-    }
-}
-
-
 fn tile_handler(mut res: Response, tc_path: &str, z: u8, x: u32, y: u32, ext: String) {
     let tile = Tile::new(z, x, y);
     if tile.is_none() {
@@ -164,19 +135,3 @@ fn tilejson_handler(mut res: Response, tc_path: &str, urlprefix: &str, maxzoom: 
         }
     };
 }
-
-mod test {
-    #[test]
-    fn test_url_parse() {
-        use super::{parse_url, URL};
-
-        assert_eq!(parse_url("/", 22), URL::Invalid);
-        assert_eq!(parse_url("/index.json", 22), URL::Tilejson);
-        assert_eq!(parse_url("/2/12/12.png", 22), URL::Tile(2, 12, 12, "png".to_owned()));
-        assert_eq!(parse_url("/2/12/12.png", 1), URL::Invalid);
-
-    }
-
-
-}
-
