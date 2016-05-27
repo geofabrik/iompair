@@ -50,8 +50,6 @@ pub fn download_url(url: &str) -> Result<Vec<u8>, IompairError> {
 /// Errors are returned
 pub fn save_to_file(path: &Path, bytes: &Vec<u8>) -> Result<(), IompairError> {
     let parent_directory = try!(path.parent().ok_or(IompairError::NoParentDirectoryError));
-    //if parent_directory.is_none() { return; }
-    //let parent_directory = parent_directory.unwrap();
     if ! parent_directory.exists() {
         try!(fs::create_dir_all(parent_directory).map_err(IompairError::CreateDirsError));
     }
