@@ -11,7 +11,7 @@ use std::process::exit;
 use hyper::Server;
 use hyper::server::Request;
 use hyper::server::Response;
-use hyper::header::ContentType;
+use hyper::header::{ContentType, CacheDirective, CacheControl};
 use hyper::mime::{Mime, TopLevel, SubLevel};
 use hyper::Client;
 use hyper::status::StatusCode;
@@ -102,8 +102,8 @@ pub fn cache(options: &ArgMatches) {
         }
 
         *res.status_mut() = StatusCode::Ok;
-        //res.headers.set(CacheControl(vec![CacheDirective::Private, CacheDirective::NoCache, CacheDirective::MaxAge(0)]));
-        //res.headers.set(ContentType(Mime(TopLevel::Application, SubLevel::Ext("x-protobuf".to_owned()), vec![])));
+        res.headers_mut().set(CacheControl(vec![CacheDirective::Private, CacheDirective::NoCache, CacheDirective::MaxAge(0)]));
+        res.headers_mut().set(ContentType(Mime(TopLevel::Application, SubLevel::Ext("x-protobuf".to_owned()), vec![])));
         res.send(&vector_tile_contents);
     }
 
