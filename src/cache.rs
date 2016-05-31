@@ -88,7 +88,7 @@ pub fn cache(options: &ArgMatches) {
             //try!(file.read_to_end(&mut vector_tile_contents).map_err(|e| { IronError::new(e, Response::with(status::InternalServerError)) } ));
             println!("Cache hit {}/{}/{}", z, x, y);
         } else {
-            match download_url(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y)) {
+            match download_url(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y), 10) {
                 Err(_) => {
                     println!("Cache miss {}/{}/{} and error downloading file", z, x, y);
                     *res.status_mut() = StatusCode::InternalServerError;

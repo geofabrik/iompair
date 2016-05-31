@@ -31,8 +31,27 @@ pub enum IompairError {
 //}
 
 
-/// Given a URL, it'll download the URL and return the bytes, or an error of what happened
-pub fn download_url(url: &str) -> Result<Vec<u8>, IompairError> {
+/// Given a URL, it'll download the URL and return the bytes, or an error of what happened. If
+/// there's an error, it tries at most `num_tries` times.
+pub fn download_url(url: &str, num_tries: u8) -> Result<Vec<u8>, IompairError> {
+    // Do first download, which ensures result is always initialised
+    let mut result = download_url_single(url);
+
+    for _ in 1..num_tries {
+        result = download_url_single(url);
+        if result.is_ok() {
+            // Successful download! Bail out early.
+            return result;
+        }
+        // otherwise just try again at the loop
+    }
+
+    // If we've gotten to hear it has always failed and we've tried enough. So just return that
+    // error
+    result
+}
+
+fn download_url_single(url: &str) -> Result<Vec<u8>, IompairError> {
     let mut client = Client::new();
     
     // set the timeout to be 1 day
@@ -66,7 +85,7 @@ pub fn save_to_file(path: &Path, bytes: &Vec<u8>) -> Result<(), IompairError> {
 /// Downloads the URL and if it went OK, saves the contents to path. Returns Error if something
 /// went wrong.
 pub fn download_url_and_save_to_file(url: &str, path: &Path) -> Result<(), IompairError> {
-    let contents = try!(download_url(url));
+    let contents = try!(download_url(url, 10));
 
     save_to_file(path, &contents)
 }
