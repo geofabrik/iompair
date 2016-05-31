@@ -67,12 +67,14 @@ pub fn cache(options: &ArgMatches) {
     let new_tilejson_contents: String = json::encode(&tilejson).unwrap();
 
     fn tilejson_handler(res: Response, tilejson_contents: &str) {
-        res.send(tilejson_contents.as_bytes());
+        res.send(tilejson_contents.as_bytes()).unwrap_or_else(|e| {
+            println!("Error when trying to send tilejson to client: {:?}", e);
+        });
     }
 
     // Handler for tiles
 
-    fn tile_handler(mut res: Response, tc_path: &str, z: u8, x: u32, y: u32, ext: String, upstream_url: &str) {
+    fn tile_handler(mut res: Response, tc_path: &str, z: u8, x: u32, y: u32, upstream_url: &str) {
         // FIXME parse properly and return 403 if wrong
 
         let tile = Tile::new(z, x, y).unwrap();
@@ -84,8 +86,14 @@ pub fn cache(options: &ArgMatches) {
         
         if this_tile_tc_path.exists() {
             let mut file = fs::File::open(this_tile_tc_path).unwrap();
-            file.read_to_end(&mut vector_tile_contents);
-            //try!(file.read_to_end(&mut vector_tile_contents).map_err(|e| { IronError::new(e, Response::with(status::InternalServerError)) } ));
+            match file.read_to_end(&mut vector_tile_contents) {
+                Err(e) => {
+                    println!("Error when trying to send vectortile contents to client: {:?}", e);
+                    *res.status_mut() = hyper::status::StatusCode::InternalServerError;
+                    return;
+                },
+                _ => {},
+            }
             println!("Cache hit {}/{}/{}", z, x, y);
         } else {
             match download_url(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y), 10) {
@@ -95,8 +103,16 @@ pub fn cache(options: &ArgMatches) {
                     return;
                 },
                 Ok(vector_tile_contents) => {
-                    save_to_file(this_tile_tc_path, &vector_tile_contents);
-                    println!("Cache miss {}/{}/{} Downloaded and saved in {:?}", z, x, y, this_tile_tc_path);
+                    match save_to_file(this_tile_tc_path, &vector_tile_contents) {
+                        Err(e) => {
+                            println!("Error when trying to save file to cache: {:?}", e);
+                            *res.status_mut() = hyper::status::StatusCode::InternalServerError;
+                            return;
+                        },
+                        Ok(_) => {
+                            println!("Cache miss {}/{}/{} Downloaded and saved in {:?}", z, x, y, this_tile_tc_path);
+                        },
+                    }
                 }
             }
         }
@@ -104,7 +120,9 @@ pub fn cache(options: &ArgMatches) {
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set(CacheControl(vec![CacheDirective::Private, CacheDirective::NoCache, CacheDirective::MaxAge(0)]));
         res.headers_mut().set(ContentType(Mime(TopLevel::Application, SubLevel::Ext("x-protobuf".to_owned()), vec![])));
-        res.send(&vector_tile_contents);
+        res.send(&vector_tile_contents).unwrap_or_else(|e| {
+            println!("Error when sending vector_tile_contents to client: {:?}", e);
+        });
     }
 
     fn base_handler(req: Request, mut res: Response, tc_path: &str, upstream_url: &str, tilejson_contents: &str) {
@@ -120,12 +138,12 @@ pub fn cache(options: &ArgMatches) {
             URL::Invalid => {
                 *res.status_mut() = hyper::status::StatusCode::NotFound;
             },
-            URL::Tile(z, x, y, ext) => {
-                tile_handler(res, tc_path, z, x, y, ext, upstream_url);
+            URL::Tile(z, x, y, _) => {
+                tile_handler(res, tc_path, z, x, y, upstream_url);
             }
         }
     }
 
     println!("Serving on port {}", port);
-    Server::http(&*format!("localhost:{}", port)).unwrap().handle(move |req: Request, res: Response| { base_handler(req, res, &tc_path, &upstream_url, &tilejson_contents) }).unwrap();
+    Server::http(&*format!("localhost:{}", port)).unwrap().handle(move |req: Request, res: Response| { base_handler(req, res, &tc_path, &upstream_url, &new_tilejson_contents) }).unwrap();
 }

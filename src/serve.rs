@@ -2,7 +2,6 @@ extern crate hyper;
 extern crate clap;
 extern crate rustc_serialize;
 extern crate slippy_map_tiles;
-extern crate regex;
 
 use std::io::Read;
 use std::fs;
@@ -14,8 +13,6 @@ use hyper::server::Request;
 use hyper::server::Response;
 use hyper::header::{ContentType};
 use hyper::mime::{Mime, TopLevel, SubLevel};
-
-use regex::Regex;
 
 use rustc_serialize::json;
 
