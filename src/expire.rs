@@ -48,11 +48,11 @@ pub fn expire(options: &ArgMatches) {
 
     let upstream_url = options.value_of("upstream_url").unwrap().to_string();
     let tc_path = options.value_of("tc_path").unwrap().to_string();
-    let threads = options.value_of("threads").unwrap_or("4").parse().unwrap();
+    let threads = options.value_of("threads").unwrap().parse().unwrap();
 
     let expire_path = options.value_of("expire_path").unwrap().to_string();
 
-    let wait_between_runs = options.value_of("wait_between_runs").unwrap_or("60").parse().unwrap();
+    let wait_between_runs = options.value_of("wait_between_runs").unwrap().parse().unwrap();
 
 
     println!("Starting {} threads", threads);

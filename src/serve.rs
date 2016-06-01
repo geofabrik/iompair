@@ -33,7 +33,7 @@ pub fn serve(options: &ArgMatches) {
 
     let port = options.value_of("port").unwrap().to_string();
     let tc_path = options.value_of("tc_path").unwrap().to_string();
-    let maxzoom: u8 = options.value_of("maxzoom").unwrap_or("14").parse().unwrap();
+    let maxzoom: u8 = options.value_of("maxzoom").unwrap().parse().unwrap();
     let urlprefix = options.value_of("urlprefix").unwrap_or(&format!("http://localhost:{}/", port)).to_string();
     // TODO make tc_path absolute
     

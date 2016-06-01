@@ -65,10 +65,10 @@ pub fn stuffer(options: &ArgMatches) {
     let always_download = options.is_present("always-download");
     let files_older_than: Option<DateTime<FixedOffset>> = options.value_of("files-older-than").and_then(|t| { DateTime::parse_from_rfc3339(t).ok() });
 
-    let top = options.value_of("top").unwrap_or("90").parse().unwrap();
-    let bottom = options.value_of("bottom").unwrap_or("-90").parse().unwrap();
-    let left = options.value_of("left").unwrap_or("-180").parse().unwrap();
-    let right = options.value_of("right").unwrap_or("180").parse().unwrap();
+    let top = options.value_of("top").unwrap().parse().unwrap();
+    let bottom = options.value_of("bottom").unwrap().parse().unwrap();
+    let left = options.value_of("left").unwrap().parse().unwrap();
+    let right = options.value_of("right").unwrap().parse().unwrap();
 
 
     // Download the tilejson file and save it for later.
