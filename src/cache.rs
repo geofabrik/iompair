@@ -45,17 +45,29 @@ pub fn cache(options: &ArgMatches) {
     let new_tiles = json::Json::from_str(&format!("[\"http://localhost:{}/{{z}}/{{x}}/{{y}}.pbf\"]", port)).unwrap();
 
     // TODO return appropriate error from upstream
-    let mut result = client.get(&format!("{}/index.json", upstream_url)).send().unwrap();
+    let mut result = match client.get(&format!("{}/index.json", upstream_url)).send() {
+        Ok(r) => r,
+        Err(e) => {
+            println!("Error getting TileJSON from upstream: {:?}", e);
+            return;
+        }
+    };
     
     // Some back and forth to decode, replace and encode to get the new tilejson string
     let mut tilejson_contents = String::new();
-    result.read_to_string(&mut tilejson_contents).unwrap();
+    result.read_to_string(&mut tilejson_contents);
     let tilejson_0 = json::Json::from_str(&tilejson_contents);
     if tilejson_0.is_err() {
         println!("TileJSON at {}/index.json is not a valid JSON file, error: {:?}. Contents: {:?} Exiting.", upstream_url, tilejson_0, tilejson_contents);
         exit(1);
     }
-    let tilejson_0 = tilejson_0.unwrap();
+    let tilejson_0 = match tilejson_0 {
+        Ok(t) => t,
+        Err(e) => {
+            println!("Error parsing TileJSON: {:?}", e);
+            return;
+        }
+    };
 
     let mut tilejson = tilejson_0.as_object().unwrap().to_owned();
     tilejson.insert("tiles".to_owned(), new_tiles);
