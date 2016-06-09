@@ -6,7 +6,6 @@ extern crate slippy_map_tiles;
 use std::io::Read;
 use std::fs;
 use std::path::Path;
-use std::process::exit;
 
 use hyper::Server;
 use hyper::server::Request;
@@ -22,6 +21,48 @@ use rustc_serialize::json;
 use slippy_map_tiles::Tile;
 
 use utils::{download_url, save_to_file, parse_url, URL};
+
+// Do something that returns a Result. If there's an error, the response will be set to an
+// appropriate code, optionally something printed to stdout, and the handler will return.
+macro_rules! try_or_err {
+
+    ($e:expr, $res:ident) => (match $e {
+        Ok(e) => e,
+        Err(e) => {
+            println!("Error: {:?}", e);
+            *$res.status_mut() = hyper::status::StatusCode::InternalServerError;
+            return;
+        }
+    });
+
+    ($e:expr, $res:ident, $errmsg:expr) => (match $e {
+        Ok(e) => e,
+        Err(e) => {
+            println!("{} {:?}", $errmsg, e);
+            *$res.status_mut() = hyper::status::StatusCode::InternalServerError;
+            return;
+        }
+    });
+
+    ($e:expr, $res:ident, $errmsg:expr, Ok => $ok:block) => (match $e {
+        Ok(_) => $ok,
+        Err(e) => {
+            println!("{} {:?}", $errmsg, e);
+            *$res.status_mut() = hyper::status::StatusCode::InternalServerError;
+            return;
+        }
+    });
+}
+
+macro_rules! try_or_ret {
+    ($e:expr, $msg:expr) => ( match $e {
+        Ok(e) => e,
+        Err(e) => {
+            println!("{} {:?}", $msg, e);
+            return;
+        },
+    });
+}
 
 pub fn cache(options: &ArgMatches) {
 
@@ -45,38 +86,21 @@ pub fn cache(options: &ArgMatches) {
     let new_tiles = json::Json::from_str(&format!("[\"http://localhost:{}/{{z}}/{{x}}/{{y}}.pbf\"]", port)).unwrap();
 
     // TODO return appropriate error from upstream
-    let mut result = match client.get(&format!("{}/index.json", upstream_url)).send() {
-        Ok(r) => r,
-        Err(e) => {
-            println!("Error getting TileJSON from upstream: {:?}", e);
-            return;
-        }
-    };
+    let mut result = try_or_ret!(client.get(&format!("{}/index.json", upstream_url)).send(), "Error getting TileJSON from upstream");
     
     // Some back and forth to decode, replace and encode to get the new tilejson string
     let mut tilejson_contents = String::new();
-    result.read_to_string(&mut tilejson_contents);
-    let tilejson_0 = json::Json::from_str(&tilejson_contents);
-    if tilejson_0.is_err() {
-        println!("TileJSON at {}/index.json is not a valid JSON file, error: {:?}. Contents: {:?} Exiting.", upstream_url, tilejson_0, tilejson_contents);
-        exit(1);
-    }
-    let tilejson_0 = match tilejson_0 {
-        Ok(t) => t,
-        Err(e) => {
-            println!("Error parsing TileJSON: {:?}", e);
-            return;
-        }
-    };
+    try_or_ret!(result.read_to_string(&mut tilejson_contents), "Error when trying to read tilejson contents");
+    let tilejson_0 = try_or_ret!(json::Json::from_str(&tilejson_contents), "TileJSON at {}/index.json is not a valid JSON file");
 
-    let mut tilejson = tilejson_0.as_object().unwrap().to_owned();
+    let mut tilejson = try_or_ret!(tilejson_0.as_object().ok_or("ERR"), "Error when trying to read tilejson contents").to_owned();
     tilejson.insert("tiles".to_owned(), new_tiles);
 
     if let Some(z) = maxzoom {
         tilejson.insert("maxzoom".to_owned(), json::Json::U64(z as u64));
     }
 
-    let new_tilejson_contents: String = json::encode(&tilejson).unwrap();
+    let new_tilejson_contents: String = try_or_ret!(json::encode(&tilejson), "Error when trying to create tilejson contents");
 
     fn tilejson_handler(res: Response, tilejson_contents: &str) {
         res.send(tilejson_contents.as_bytes()).unwrap_or_else(|e| {
@@ -87,9 +111,14 @@ pub fn cache(options: &ArgMatches) {
     // Handler for tiles
 
     fn tile_handler(mut res: Response, tc_path: &str, z: u8, x: u32, y: u32, upstream_url: &str) {
-        // FIXME parse properly and return 403 if wrong
-
-        let tile = Tile::new(z, x, y).unwrap();
+        let tile = match Tile::new(z, x, y) {
+            None => {
+                *res.status_mut() = hyper::status::StatusCode::BadRequest;
+                res.send(format!("Invalid tile number {}/{}/{}", z, x, y).as_bytes()).ok();
+                return;
+            },
+            Some(t) => t,
+        };
         let path = format!("{}/{}", tc_path, tile.tc_path("pbf"));
         let this_tile_tc_path = Path::new(&path);
 
@@ -97,44 +126,25 @@ pub fn cache(options: &ArgMatches) {
         let mut vector_tile_contents: Vec<u8> = Vec::new();
         
         if this_tile_tc_path.exists() {
-            let mut file = fs::File::open(this_tile_tc_path).unwrap();
-            match file.read_to_end(&mut vector_tile_contents) {
-                Err(e) => {
-                    println!("Error when trying to send vectortile contents to client: {:?}", e);
-                    *res.status_mut() = hyper::status::StatusCode::InternalServerError;
-                    return;
-                },
-                _ => {},
-            }
+            let mut file = try_or_err!(fs::File::open(this_tile_tc_path), res, format!("Couldn't open tile {:?}", this_tile_tc_path));
+            try_or_err!(file.read_to_end(&mut vector_tile_contents), res, "Error when trying to send vectortile contents to client");
             println!("Cache hit {}/{}/{}", z, x, y);
         } else {
-            match download_url(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y), 10) {
-                Err(_) => {
-                    println!("Cache miss {}/{}/{} and error downloading file", z, x, y);
-                    *res.status_mut() = StatusCode::InternalServerError;
-                    return;
-                },
-                Ok(vector_tile_contents) => {
-                    match save_to_file(this_tile_tc_path, &vector_tile_contents) {
-                        Err(e) => {
-                            println!("Error when trying to save file to cache: {:?}", e);
-                            *res.status_mut() = hyper::status::StatusCode::InternalServerError;
-                            return;
-                        },
-                        Ok(_) => {
-                            println!("Cache miss {}/{}/{} Downloaded and saved in {:?}", z, x, y, this_tile_tc_path);
-                        },
-                    }
+            try_or_err!(download_url(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y), 10), res,
+                format!("Cache miss {}/{}/{} and error downloading file", z, x, y),
+                Ok => {
+                    try_or_err!(save_to_file(this_tile_tc_path, &vector_tile_contents), res,
+                        "Error when trying to save file to cache",
+                        Ok => { println!("Cache miss {}/{}/{} Downloaded and saved in {:?}", z, x, y, this_tile_tc_path); }
+                    );
                 }
-            }
+            );
         }
 
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set(CacheControl(vec![CacheDirective::Private, CacheDirective::NoCache, CacheDirective::MaxAge(0)]));
         res.headers_mut().set(ContentType(Mime(TopLevel::Application, SubLevel::Ext("x-protobuf".to_owned()), vec![])));
-        res.send(&vector_tile_contents).unwrap_or_else(|e| {
-            println!("Error when sending vector_tile_contents to client: {:?}", e);
-        });
+        res.send(&vector_tile_contents).ok();
     }
 
     fn base_handler(req: Request, mut res: Response, tc_path: &str, upstream_url: &str, tilejson_contents: &str) {
@@ -157,5 +167,10 @@ pub fn cache(options: &ArgMatches) {
     }
 
     println!("Serving on port {}", port);
-    Server::http(&*format!("localhost:{}", port)).unwrap().handle(move |req: Request, res: Response| { base_handler(req, res, &tc_path, &upstream_url, &new_tilejson_contents) }).unwrap();
+    match Server::http(&*format!("localhost:{}", port)) {
+        Err(e) => { println!("Couldn't open port: {:?}", e); return },
+        Ok(s) => {
+            s.handle(move |req: Request, res: Response| { base_handler(req, res, &tc_path, &upstream_url, &new_tilejson_contents) }).ok();
+        },
+    };
 }

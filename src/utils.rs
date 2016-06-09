@@ -99,19 +99,25 @@ pub enum URL {
 
 
 pub fn parse_url(url: &str, maxzoom: u8) -> URL {
+
+    // Macro which returns URL::Invalid if the Option<T> is None. Makes it easier for early return
+    macro_rules! or_invalid {
+        ($e:expr) => (match $e { Some(e) => e, None => return URL::Invalid });
+    }
+
     // FIXME reuse regex
     if url == "/index.json" {
         URL::Tilejson
     } else {
         let re = Regex::new("/(?P<z>[0-9]?[0-9])/(?P<x>[0-9]+)/(?P<y>[0-9]+)\\.(?P<ext>.{3,4})").unwrap();
         if let Some(caps) = re.captures(url) {
-            let z: u8 = caps.name("z").unwrap().parse().unwrap();
+            let z: u8 = or_invalid!(or_invalid!(caps.name("z")).parse().ok());
             if z > maxzoom {
                 URL::Invalid
             } else {
-                let x: u32 = caps.name("x").unwrap().parse().unwrap();
-                let y: u32 = caps.name("y").unwrap().parse().unwrap();
-                let ext: String = caps.name("ext").unwrap().to_owned();
+                let x: u32 = or_invalid!(or_invalid!(caps.name("x")).parse().ok());
+                let y: u32 = or_invalid!(or_invalid!(caps.name("y")).parse().ok());
+                let ext: String = or_invalid!(caps.name("ext")).to_owned();
                 URL::Tile(z, x, y, ext)
             }
         } else {
