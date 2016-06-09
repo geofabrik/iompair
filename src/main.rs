@@ -10,11 +10,13 @@ extern crate chrono;
 
 use clap::{Arg, App, SubCommand};
 
+#[macro_use]
+mod utils;
+
 mod cache;
 mod serve;
 mod stuffer;
 mod expire;
-mod utils;
 
 use cache::cache;
 use serve::serve;

@@ -97,14 +97,7 @@ fn base_handler(req: Request, mut res: Response, tc_path: &str, maxzoom: u8, url
 
 fn tile_handler(mut res: Response, tc_path: &str, z: u8, x: u32, y: u32, ext: String) {
     let tile = Tile::new(z, x, y);
-    let tile = match tile {
-        None => {
-            *res.status_mut() = hyper::status::StatusCode::NotFound;
-            println!("Error when turning z {} x {} y {} into tileobject", z, x, y);
-            return;
-        },
-        Some(t) => { t },
-    };
+    let tile = try_or_err!(tile.ok_or("ERR"), res, format!("Error when turning z {} x {} y {} into tileobject", z, x, y));
 
     let path = format!("{}/{}", tc_path, tile.tc_path(ext));
     let this_tile_tc_path = Path::new(&path);
@@ -113,22 +106,8 @@ fn tile_handler(mut res: Response, tc_path: &str, z: u8, x: u32, y: u32, ext: St
     let mut vector_tile_contents: Vec<u8> = Vec::new();
     
     if this_tile_tc_path.exists() {
-        let mut file = match fs::File::open(this_tile_tc_path) {
-            Err(e) => {
-                *res.status_mut() = hyper::status::StatusCode::InternalServerError;
-                println!("Error when opening file {:?}: {:?}", this_tile_tc_path, e);
-                return;
-            },
-            Ok(f) => { f },
-        };
-        match file.read_to_end(&mut vector_tile_contents) {
-            Ok(_) => {},
-            Err(e) => {
-                println!("Error when trying to send vectortile contents to client: {:?}", e);
-                *res.status_mut() = hyper::status::StatusCode::InternalServerError;
-                return;
-            },
-        }
+        let mut file = try_or_err!(fs::File::open(this_tile_tc_path), res, format!("Error when opening file {:?}", this_tile_tc_path));
+        try_or_err!(file.read_to_end(&mut vector_tile_contents), res, format!("Error when trying to send vectortile contents to client"));
     } else {
         *res.status_mut() = hyper::status::StatusCode::NotFound;
     }

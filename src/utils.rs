@@ -12,6 +12,38 @@ use std::time::Duration;
 
 use hyper::Client;
 
+// Do something that returns a Result. If there's an error, the response will be set to an
+// appropriate code, optionally something printed to stdout, and the handler will return.
+macro_rules! try_or_err {
+
+    ($e:expr, $res:ident) => (match $e {
+        Ok(e) => e,
+        Err(e) => {
+            println!("Error: {:?}", e);
+            *$res.status_mut() = hyper::status::StatusCode::InternalServerError;
+            return;
+        }
+    });
+
+    ($e:expr, $res:ident, $errmsg:expr) => (match $e {
+        Ok(e) => e,
+        Err(e) => {
+            println!("{} {:?}", $errmsg, e);
+            *$res.status_mut() = hyper::status::StatusCode::InternalServerError;
+            return;
+        }
+    });
+
+    ($e:expr, $res:ident, $errmsg:expr, Ok => $ok:block) => (match $e {
+        Ok(_) => $ok,
+        Err(e) => {
+            println!("{} {:?}", $errmsg, e);
+            *$res.status_mut() = hyper::status::StatusCode::InternalServerError;
+            return;
+        }
+    });
+}
+
 #[derive(Debug)]
 pub enum IompairError {
     DownloadError(hyper::Error),
