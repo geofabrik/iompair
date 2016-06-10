@@ -2,7 +2,7 @@
 authors = ["Rory McCann <rory@technomancy.org>"]
 description = "Work with Slippy map tile names, found in OpenStreetMap"
 keywords = ["openstreetmap", "osm", "vectortiles"]
-license = "AGPL-3.0"
+license = "GPL-3.0+"
 name = "iompair"
 version = "0.4.0"
 
