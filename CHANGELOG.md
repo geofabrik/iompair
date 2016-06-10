@@ -1,3 +1,29 @@
+<a name=""></a>
+##  (2016-06-10)
+
+
+#### Bug Fixes
+
+*   Explicity handle more errors ([996107a3](996107a3))
+* **cache:**
+  *  Set cache control headers ([7b532820](7b532820))
+  *  Remove iron, do it all with hyper now ([b52617f9](b52617f9))
+* **expire:**
+  *  Logic bug which prevented it expiring tiles ([3c165b88](3c165b88))
+  *  Silent output if nothing to do ([2b825389](2b825389))
+* **utils:**
+  *  Retry downloads until we get a success, or max retries ([23c84cd4](23c84cd4))
+  *  Set timeout for waiting for a response to 1 day ([c5af2172](c5af2172))
+
+#### Features
+
+* **expire:**
+  *  Display message if there's an error refreshing a tile ([73c66f7b](73c66f7b))
+  *  Can change wait between checks of expire files ([319fa5b2](319fa5b2))
+* **utils:**  Use proper rust errors for download & save ([7ea313f6](7ea313f6))
+
+
+
 <a name="v0.4.0"></a>
 ## v0.4.0 (2016-05-25)
 
