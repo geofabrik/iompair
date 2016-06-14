@@ -14,11 +14,32 @@ You can `serve` vector tiles from a TileCache layout directory over TMS URLs, us
 
 ## iompair serve
 
+Serves a TileCache laidout directory over HTTP over a port.
+
+    iompair serve --port 9000 --tc-path /path/to/files/ --urlprefix http://example.com/mytiles/
+
 ## iompair expire
+
+Reads all the expire filename in a directory, looking for files, parses out the
+TMS tile references and updates the files stored in the vector tile directory
+from the upstream, pbf vector tile source.
+
+It will not finish, but wait until there are new files available, sleeping
+between runs
+
+    iompair expire --tc-path /path/to/vector/tile/store --upstream http://example.com/tiles/ --expire-path /path/to/osm2pgsql/expired-tiles/
 
 ## iompair stuffer
 
+Populates (stuffs) a tilecache laidout directory with tiles from an upstream
+vector tile source. Specifiy the number of threads with `-T`.
+
+    iompair stuffer --tc-path /path/to/put/vector/tiles --upstream http://example.com/tiles/ -z 14 -b 35.55 -t 71.6 -l -25.93 -r 48.95 -T 20
+
 ## iompair cache
+
+It will serve files from a provided directory, and if the file isn't there,
+it'll download from the upstream, and cache the file locally. 
 
 # Copyright & Licence
 
