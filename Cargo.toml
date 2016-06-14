@@ -19,6 +19,3 @@ path = "../iter-progress/"
 
 [dependencies.slippy-map-tiles]
 path = "../slippy-map-tiles/"
-
-[dependencies.tilejson]
-path = "../tilejson/"

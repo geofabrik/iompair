@@ -3,7 +3,6 @@ extern crate clap;
 extern crate rustc_serialize;
 extern crate slippy_map_tiles;
 extern crate regex;
-extern crate tilejson;
 extern crate simple_parallel;
 extern crate iter_progress;
 extern crate chrono;
