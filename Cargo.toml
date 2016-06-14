@@ -13,7 +13,5 @@ hyper = "0.9"
 regex = "0.1"
 rustc-serialize = "*"
 simple_parallel = "*"
-slippy-map-tiles = "^0.7"
-
-[dependencies.iter-progress]
-path = "../iter-progress/"
+slippy-map-tiles = "0.7"
+iter-progress = "0.3"
