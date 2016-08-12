@@ -1,3 +1,18 @@
+<a name="v0.6.0"></a>
+## v0.6.0 (2016-08-12)
+
+
+#### Features
+
+*   Output when finished ([7f8054a6](7f8054a6))
+
+#### Bug Fixes
+
+*   Work if maxzoom not specified ([e84b0603](e84b0603))
+* **serve:**  Return an empty 200, not 404, when tile doesn't exist ([a689ff13](a689ff13))
+
+
+
 <a name=""></a>
 ##  (2016-06-10)
 
