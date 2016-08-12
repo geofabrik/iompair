@@ -8,10 +8,10 @@ version = "0.5.0"
 
 [dependencies]
 chrono = "0.2"
-clap = "*"
+clap = "2.10"
 hyper = "0.9"
 regex = "0.1"
-rustc-serialize = "*"
-simple_parallel = "*"
+rustc-serialize = "0.3"
+simple_parallel = "0.2"
 slippy-map-tiles = "0.7"
 iter-progress = "0.3"
