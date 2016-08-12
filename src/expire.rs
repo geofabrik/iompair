@@ -131,5 +131,7 @@ pub fn expire(options: &ArgMatches) {
         }
     }
 
+    println!("Exiting");
+
 }
 
