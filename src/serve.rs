@@ -109,7 +109,9 @@ fn tile_handler(mut res: Response, tc_path: &str, z: u8, x: u32, y: u32, ext: St
         let mut file = try_or_err!(fs::File::open(this_tile_tc_path), res, format!("Error when opening file {:?}", this_tile_tc_path));
         try_or_err!(file.read_to_end(&mut vector_tile_contents), res, format!("Error when trying to send vectortile contents to client"));
     } else {
-        *res.status_mut() = hyper::status::StatusCode::NotFound;
+        // File not found. This can happen in the middle of the ocean or something
+        // If we return a 404 then Kosmtik throws an error, instead return a 200. The results will
+        // be empty anyway
     }
 
     res.headers_mut().set(ContentType(Mime(TopLevel::Application, SubLevel::Ext("x-protobuf".to_owned()), vec![])));
