@@ -7,7 +7,8 @@ extern crate simple_parallel;
 extern crate iter_progress;
 extern crate chrono;
 
-use clap::{Arg, App, SubCommand};
+use clap::{Arg, App, SubCommand, ArgGroup};
+
 
 #[macro_use]
 mod utils;
@@ -46,15 +47,19 @@ fn main() {
             .arg(Arg::with_name("port").short("p").long("port")
                  .takes_value(true).required(true)
                  .help("Port to listen on").value_name("PORT"))
-            .arg(Arg::with_name("tc_path").short("c").long("tc-path")
-                 .takes_value(true).required(true)
-                 .help("Directory to use as a tile cache.").value_name("PATH"))
             .arg(Arg::with_name("maxzoom").short("z").long("max-zoom")
                  .takes_value(true).default_value("14")
                  .help("Maximum zoom to pretend").value_name("ZOOM"))
             .arg(Arg::with_name("urlprefix").long("urlprefix")
                  .takes_value(true).required(false)
                  .help("URL that the tiles are accessible under").value_name("URL"))
+            .arg(Arg::with_name("tc_path").long("tc-path")
+                 .takes_value(true).conflicts_with("ts_path")
+                 .help("Directory to use as a tile cache (TileCache layout).").value_name("PATH"))
+            .arg(Arg::with_name("ts_path").long("ts-path")
+                 .takes_value(true).conflicts_with("tc-path")
+                 .help("Directory to use as a tile cache (TileStash safe layout).").value_name("PATH"))
+            .group(ArgGroup::with_name("path").args(&["tc_path", "ts_path"]).required(true))
             )
         .subcommand(SubCommand::with_name("stuffer")
             .about("Populate a tile cache directory with all the tiles in an area")
