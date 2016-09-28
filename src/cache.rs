@@ -122,13 +122,13 @@ pub fn cache(options: &ArgMatches) {
         }
             
         match parse_url(&url, 22) {
-            URL::Tilejson => {
+            URL::Tilejson(prefix) => {
                 tilejson_handler(res, tilejson_contents);
             },
             URL::Invalid => {
                 *res.status_mut() = hyper::status::StatusCode::NotFound;
             },
-            URL::Tile(z, x, y, _) => {
+            URL::Tile(prefix, z, x, y, _) => {
                 tile_handler(res, tc_path, z, x, y, upstream_url);
             }
         }

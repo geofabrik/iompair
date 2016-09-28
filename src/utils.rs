@@ -125,8 +125,8 @@ pub fn download_url_and_save_to_file(url: &str, path: &Path) -> Result<(), Iompa
 #[derive(Debug, PartialEq, Eq)]
 pub enum URL {
     Invalid,
-    Tilejson,
-    Tile(u8, u32, u32, String),
+    Tilejson(Option<String>),
+    Tile(Option<String>, u8, u32, u32, String),
 }
 
 
@@ -136,12 +136,12 @@ pub fn parse_url(url: &str, maxzoom: u8) -> URL {
     macro_rules! or_invalid {
         ($e:expr) => (match $e { Some(e) => e, None => return URL::Invalid });
     }
-
     // FIXME reuse regex
-    if url == "/index.json" {
-        URL::Tilejson
+
+    if let Some(caps) = Regex::new("^(/(?P<prefix>[a-zA-Z0-9_-]+))?/index.json$").unwrap().captures(url) {
+        URL::Tilejson(caps.name("prefix").map(|x| x.to_string()))
     } else {
-        let re = Regex::new("/(?P<z>[0-9]?[0-9])/(?P<x>[0-9]+)/(?P<y>[0-9]+)\\.(?P<ext>.{3,4})").unwrap();
+        let re = Regex::new("^(/(?P<prefix>[a-zA-Z0-9_-]+))?/(?P<z>[0-9]?[0-9])/(?P<x>[0-9]+)/(?P<y>[0-9]+)\\.(?P<ext>.{3,4})$").unwrap();
         if let Some(caps) = re.captures(url) {
             let z: u8 = or_invalid!(or_invalid!(caps.name("z")).parse().ok());
             if z > maxzoom {
@@ -150,7 +150,7 @@ pub fn parse_url(url: &str, maxzoom: u8) -> URL {
                 let x: u32 = or_invalid!(or_invalid!(caps.name("x")).parse().ok());
                 let y: u32 = or_invalid!(or_invalid!(caps.name("y")).parse().ok());
                 let ext: String = or_invalid!(caps.name("ext")).to_owned();
-                URL::Tile(z, x, y, ext)
+                URL::Tile(caps.name("prefix").map(|x| x.to_string()), z, x, y, ext)
             }
         } else {
             URL::Invalid
@@ -165,9 +165,16 @@ mod test {
         use super::{parse_url, URL};
 
         assert_eq!(parse_url("/", 22), URL::Invalid);
-        assert_eq!(parse_url("/index.json", 22), URL::Tilejson);
-        assert_eq!(parse_url("/2/12/12.png", 22), URL::Tile(2, 12, 12, "png".to_owned()));
+        assert_eq!(parse_url("/robots.txt", 22), URL::Invalid);
+        assert_eq!(parse_url("/index.json", 22), URL::Tilejson(None));
+        assert_eq!(parse_url("/2/12/12.png", 22), URL::Tile(None, 2, 12, 12, "png".to_owned()));
         assert_eq!(parse_url("/2/12/12.png", 1), URL::Invalid);
+
+        assert_eq!(parse_url("/foobar/index.json", 22), URL::Tilejson(Some("foobar".to_string())));
+        assert_eq!(parse_url("/foobar/2/12/12.png", 22), URL::Tile(Some("foobar".to_string()), 2, 12, 12, "png".to_owned()));
+        assert_eq!(parse_url("/HELLO_there-number-3/2/12/12.png", 22), URL::Tile(Some("HELLO_there-number-3".to_string()), 2, 12, 12, "png".to_owned()));
+        assert_eq!(parse_url("/no spaces/2/12/12.png", 22), URL::Invalid);
+        assert_eq!(parse_url("bad bad bad no spaces/2/12/12.png", 22), URL::Invalid);
 
     }
 

@@ -84,19 +84,19 @@ fn base_handler(req: Request, mut res: Response, use_tc: bool, path: &str, maxzo
     }
         
     match parse_url(&url, maxzoom) {
-        URL::Tilejson => {
-            tilejson_handler(res, path, urlprefix, maxzoom);
+        URL::Tilejson(prefix) => {
+            tilejson_handler(res, path, urlprefix, maxzoom, prefix);
         },
         URL::Invalid => {
             *res.status_mut() = hyper::status::StatusCode::NotFound;
         },
-        URL::Tile(z, x, y, ext) => {
-            tile_handler(res, use_tc, path, z, x, y, ext);
+        URL::Tile(prefix, z, x, y, ext) => {
+            tile_handler(res, use_tc, path, prefix, z, x, y, ext);
         }
     }
 }
 
-fn tile_handler(mut res: Response, use_tc: bool, path: &str, z: u8, x: u32, y: u32, ext: String) {
+fn tile_handler(mut res: Response, use_tc: bool, path: &str, prefix: Option<String>, z: u8, x: u32, y: u32, ext: String) {
     let tile = Tile::new(z, x, y);
     let tile = try_or_err!(tile.ok_or("ERR"), res, format!("Error when turning z {} x {} y {} into tileobject", z, x, y));
 
@@ -122,7 +122,7 @@ fn tile_handler(mut res: Response, use_tc: bool, path: &str, z: u8, x: u32, y: u
 
 }
 
-fn tilejson_handler(mut res: Response, path: &str, urlprefix: &str, maxzoom: u8) {
+fn tilejson_handler(mut res: Response, path: &str, urlprefix: &str, maxzoom: u8, prefix: Option<String>) {
     match tilejson_contents(path, urlprefix, maxzoom) {
         Err(e) => {
             println!("Error when reading tilejson file to serve up: {:?}", e);
