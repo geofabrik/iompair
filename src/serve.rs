@@ -57,13 +57,18 @@ pub fn serve(options: &ArgMatches) {
     }
 }
 
-fn tilejson_contents(path: &str, urlprefix: &str, maxzoom: u8) -> Result<String, IompairTileJsonError> {
+fn tilejson_contents(path: &str, prefix: Option<String>, urlprefix: &str, maxzoom: u8) -> Result<String, IompairTileJsonError> {
     // FIXME Remove the unwraps and replace with proper error handling
     let new_tiles = json::Json::from_str(&format!("[\"{}{{z}}/{{x}}/{{y}}.pbf\"]", urlprefix)).unwrap();
     let zoom_element = json::Json::U64(maxzoom as u64);
 
     // FIXME don't fall over if there is no file
-    let mut f = try!(File::open(format!("{}/index.json", path)).map_err(IompairTileJsonError::OpenFileError));
+    // TODO do proper std::path stuff here, instead of string concat
+    let tilejson_path = match prefix {
+        None => format!("{}/index.json", path),
+        Some(prefix) => format!("{}/{}/index.json", path, prefix),
+    };
+    let mut f = try!(File::open(tilejson_path).map_err(IompairTileJsonError::OpenFileError));
     let mut s = String::new();
     try!(f.read_to_string(&mut s).map_err(IompairTileJsonError::ReadFileError));
 
@@ -100,7 +105,12 @@ fn tile_handler(mut res: Response, use_tc: bool, path: &str, prefix: Option<Stri
     let tile = Tile::new(z, x, y);
     let tile = try_or_err!(tile.ok_or("ERR"), res, format!("Error when turning z {} x {} y {} into tileobject", z, x, y));
 
-    let path = if use_tc { format!("{}/{}", path, tile.tc_path(ext)) } else { format!("{}/{}", path, tile.ts_path(ext)) };
+    let this_prefix = match prefix {
+        None => path.to_string(),
+        Some(prefix) => format!("{}/{}", path, prefix),
+    };
+
+    let path = if use_tc { format!("{}/{}", this_prefix, tile.tc_path(ext)) } else { format!("{}/{}", this_prefix, tile.ts_path(ext)) };
     let this_tile_path = Path::new(&path);
 
     // This is a stupid bit of hackery to ensure that s is initialised to /something/
@@ -123,7 +133,7 @@ fn tile_handler(mut res: Response, use_tc: bool, path: &str, prefix: Option<Stri
 }
 
 fn tilejson_handler(mut res: Response, path: &str, urlprefix: &str, maxzoom: u8, prefix: Option<String>) {
-    match tilejson_contents(path, urlprefix, maxzoom) {
+    match tilejson_contents(path, prefix, urlprefix, maxzoom) {
         Err(e) => {
             println!("Error when reading tilejson file to serve up: {:?}", e);
             *res.status_mut() = hyper::status::StatusCode::InternalServerError;
