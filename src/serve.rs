@@ -36,11 +36,11 @@ enum IompairTileJsonError {
 pub fn serve(options: &ArgMatches) {
 
     let port = options.value_of("port").unwrap().to_string();
+    // TODO make path absolute
     let path = options.value_of("tc_path").or(options.value_of("ts_path")).unwrap().to_string();
     let use_tc: bool = options.value_of("tc_path").is_some();
-        let maxzoom: u8 = options.value_of("maxzoom").unwrap().parse().unwrap();
+    let maxzoom: u8 = options.value_of("maxzoom").unwrap().parse().unwrap();
     let urlprefix = options.value_of("urlprefix").unwrap_or(&format!("http://localhost:{}/", port)).to_string();
-    // TODO make path absolute
     
     // TODO read in tilejson file, change it and save it. Don't regenerate every request.
 
