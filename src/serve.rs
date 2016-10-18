@@ -65,10 +65,17 @@ fn tilejson_contents(path: &str, prefix: &Option<String>, urlprefix: &str, maxzo
 
     // FIXME don't fall over if there is no file
     // TODO do proper std::path stuff here, instead of string concat
-    let tilejson_path = match prefix {
-        None => format!("{}/index.json", path),
-        Some(prefix) => format!("{}/{}/index.json", path, prefix),
+    let directory = match prefix {
+        &None => format!("{}", path),
+        &Some(ref prefix) => format!("{}/{}", path, prefix),
     };
+
+    let tilejson_path = if Path::new(&format!("{}/index.json", directory)).exists() {
+        format!("{}/index.json", directory)
+    } else {
+        format!("{}/metadata.json", directory)
+    };
+
     let mut f = try!(File::open(tilejson_path).map_err(IompairTileJsonError::OpenFileError));
     let mut s = String::new();
     try!(f.read_to_string(&mut s).map_err(IompairTileJsonError::ReadFileError));
