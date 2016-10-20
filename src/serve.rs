@@ -60,7 +60,10 @@ pub fn serve(options: &ArgMatches) {
 
 fn tilejson_contents(path: &str, prefix: &Option<String>, urlprefix: &str, maxzoom: u8) -> Result<String, IompairTileJsonError> {
     // FIXME Remove the unwraps and replace with proper error handling
-    let new_tiles = json::Json::from_str(&format!("[\"{}{{z}}/{{x}}/{{y}}.pbf\"]", urlprefix)).unwrap();
+    let new_tiles = json::Json::from_str(&(match prefix {
+        &None => format!("[\"{}{{z}}/{{x}}/{{y}}.pbf\"]", urlprefix),
+        &Some(ref p) => format!("[\"{}{}/{{z}}/{{x}}/{{y}}.pbf\"]", urlprefix, p),
+    })).unwrap();
     let zoom_element = json::Json::U64(maxzoom as u64);
 
     // FIXME don't fall over if there is no file
