@@ -9,6 +9,7 @@ use std::fs;
 use std::io::Write;
 use std::io;
 use std::time::Duration;
+use std::fmt;
 
 use hyper::Client;
 
@@ -122,11 +123,83 @@ pub fn download_url_and_save_to_file(url: &str, path: &Path) -> Result<(), Iompa
     save_to_file(path, &contents)
 }
 
+/// A prefix for a URL path
+/// Like /foo__bar/index.json which is the concat of both foo and bar levels.
+/// /index.json would be no other layers invovled
+#[derive(Debug, PartialEq, Eq)]
+pub struct URLPathPrefix {
+    parts: Option<Vec<String>>
+}
+
+impl URLPathPrefix {
+    /// Construct a new URLPathPrefix
+    fn new<S: Into<String>>(parts: Option<Vec<S>>) -> Self {
+        // Tried to have 
+        // let new_parts: Option<Vec<String>> = parts.map(|x| x.iter().map(|y| y.into()).collect());
+        // but that didn't work
+        let new_parts: Option<Vec<String>> = match parts {
+            None => None,
+            Some(p) => {
+                let mut new: Vec<String> = Vec::with_capacity(p.len());
+                for x in p {
+                    let x: String = x.into();
+                    new.push(x);
+                }
+                Some(new)
+            }
+        };
+        URLPathPrefix{ parts: new_parts }
+    }
+
+    /// Shortcut to create a URLPathPrefix with no prefix
+    fn none() -> Self { URLPathPrefix{ parts: None } }
+
+    /// Shortcut to create a URLPathPrefix with the following parts
+    fn parts<S: Into<String>>(parts: Vec<S>) -> Self {
+        URLPathPrefix::new(Some(parts))
+    }
+
+    /// Construct a URLPathPrefix from a path string, like "foo__bar" or ""
+    fn parse<S>(s: Option<S>) -> Self where S: Into<String> {
+        match s {
+            None => URLPathPrefix{ parts: None },
+            Some(mystring) => {
+                URLPathPrefix{ parts: Some(mystring.into().split("__").map(|x| x.to_string()).filter(|x| x != "").collect::<Vec<String>>()) }
+            }
+        }
+    }
+
+    pub fn path_with_trailing_slash(&self) -> String {
+        match self.parts {
+            None => "".to_string(),
+            Some(ref p) => format!("{}/", p.join("__")),
+        }
+    }
+
+    /// Given a directory, return all the other directories that this URLPathPrefix referrs to
+    pub fn paths(&self, path: &str) -> Vec<String> {
+        match self.parts {
+            None => vec![path.to_string()],
+            Some(ref p) => p.iter().map(|x| format!("{}/{}", path, x)).collect(),
+        }
+    }
+
+}
+
+impl fmt::Display for URLPathPrefix {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.parts {
+            None => write!(f, ""),
+            Some(ref parts) => write!(f, "{}", parts.join("__")),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum URL {
     Invalid,
-    Tilejson(Option<String>),
-    Tile(Option<String>, u8, u32, u32, String),
+    Tilejson(URLPathPrefix),
+    Tile(URLPathPrefix, u8, u32, u32, String),
 }
 
 
@@ -139,7 +212,7 @@ pub fn parse_url(url: &str, maxzoom: u8) -> URL {
     // FIXME reuse regex
 
     if let Some(caps) = Regex::new("^(/(?P<prefix>[a-zA-Z0-9_-]+))?/index.json$").unwrap().captures(url) {
-        URL::Tilejson(caps.name("prefix").map(|x| x.to_string()))
+        URL::Tilejson(URLPathPrefix::parse(caps.name("prefix")))
     } else {
         let re = Regex::new("^(/(?P<prefix>[a-zA-Z0-9_-]+))?/(?P<z>[0-9]?[0-9])/(?P<x>[0-9]+)/(?P<y>[0-9]+)\\.(?P<ext>.{3,4})$").unwrap();
         if let Some(caps) = re.captures(url) {
@@ -150,7 +223,7 @@ pub fn parse_url(url: &str, maxzoom: u8) -> URL {
                 let x: u32 = or_invalid!(or_invalid!(caps.name("x")).parse().ok());
                 let y: u32 = or_invalid!(or_invalid!(caps.name("y")).parse().ok());
                 let ext: String = or_invalid!(caps.name("ext")).to_owned();
-                URL::Tile(caps.name("prefix").map(|x| x.to_string()), z, x, y, ext)
+                URL::Tile(URLPathPrefix::parse(caps.name("prefix")), z, x, y, ext)
             }
         } else {
             URL::Invalid
@@ -161,20 +234,47 @@ pub fn parse_url(url: &str, maxzoom: u8) -> URL {
 
 mod test {
     #[test]
+    fn test_urlprefix() {
+        use super::URLPathPrefix;
+
+        // Some variables to prevent "cannot infer type"
+        let none_string: Option<String> = None;
+        let none_vec: Option<Vec<String>> = None;
+        let empty_vec: Vec<String> = vec![];
+
+        assert_eq!(URLPathPrefix::parse(none_string.clone()), URLPathPrefix::new(none_vec));
+        assert_eq!(URLPathPrefix::parse(Some("")), URLPathPrefix::parts(empty_vec));
+        assert_eq!(URLPathPrefix::parse(Some("abc")), URLPathPrefix::parts(vec!["abc".to_string()]));
+        assert_eq!(URLPathPrefix::parse(Some("abc_xyz")), URLPathPrefix::parts(vec!["abc_xyz".to_string()]));
+        assert_eq!(URLPathPrefix::parse(Some("abc__xyz")), URLPathPrefix::parts(vec!["abc".to_string(), "xyz".to_string()]));
+
+        assert_eq!(URLPathPrefix::parse(none_string.clone()).paths("/tmp"), vec!["/tmp"]);
+        assert_eq!(URLPathPrefix::parse(Some("abc")).paths("/tmp"), vec!["/tmp/abc"]);
+        assert_eq!(URLPathPrefix::parse(Some("abc__xyz")).paths("/tmp"), vec!["/tmp/abc", "/tmp/xyz"]);
+        assert_eq!(URLPathPrefix::parse(Some("abc__xyz__foo__bar")).paths("/tmp"), vec!["/tmp/abc", "/tmp/xyz", "/tmp/foo", "/tmp/bar"]);
+    }
+
+    #[test]
     fn test_url_parse() {
-        use super::{parse_url, URL};
+        use super::{parse_url, URL, URLPathPrefix};
+
 
         assert_eq!(parse_url("/", 22), URL::Invalid);
         assert_eq!(parse_url("/robots.txt", 22), URL::Invalid);
-        assert_eq!(parse_url("/index.json", 22), URL::Tilejson(None));
-        assert_eq!(parse_url("/2/12/12.png", 22), URL::Tile(None, 2, 12, 12, "png".to_owned()));
+        assert_eq!(parse_url("/index.json", 22), URL::Tilejson(URLPathPrefix::none()));
+        assert_eq!(parse_url("/2/12/12.png", 22), URL::Tile(URLPathPrefix::none(), 2, 12, 12, "png".to_owned()));
         assert_eq!(parse_url("/2/12/12.png", 1), URL::Invalid);
 
-        assert_eq!(parse_url("/foobar/index.json", 22), URL::Tilejson(Some("foobar".to_string())));
-        assert_eq!(parse_url("/foobar/2/12/12.png", 22), URL::Tile(Some("foobar".to_string()), 2, 12, 12, "png".to_owned()));
-        assert_eq!(parse_url("/HELLO_there-number-3/2/12/12.png", 22), URL::Tile(Some("HELLO_there-number-3".to_string()), 2, 12, 12, "png".to_owned()));
+        assert_eq!(parse_url("/foobar/index.json", 22), URL::Tilejson(URLPathPrefix::parts(vec!["foobar"])));
+        assert_eq!(parse_url("/foobar/2/12/12.png", 22), URL::Tile(URLPathPrefix::parts(vec!["foobar"]), 2, 12, 12, "png".to_owned()));
+        assert_eq!(parse_url("/HELLO_there-number-3/2/12/12.png", 22), URL::Tile(URLPathPrefix::parts(vec!["HELLO_there-number-3"]), 2, 12, 12, "png".to_owned()));
         assert_eq!(parse_url("/no spaces/2/12/12.png", 22), URL::Invalid);
         assert_eq!(parse_url("bad bad bad no spaces/2/12/12.png", 22), URL::Invalid);
+
+        assert_eq!(parse_url("/foo__bar/index.json", 22), URL::Tilejson(URLPathPrefix::parts(vec!["foo", "bar"])));
+        assert_eq!(parse_url("/foo__bar/0/0/0.png", 22), URL::Tile(URLPathPrefix::parts(vec!["foo", "bar"]), 0, 0, 0, "png".to_string()));
+        assert_eq!(parse_url("/bar__foo/0/0/0.png", 22), URL::Tile(URLPathPrefix::parts(vec!["bar", "foo"]), 0, 0, 0, "png".to_string()));
+        assert_eq!(parse_url("/foo__bar__baz/0/0/0.png", 22), URL::Tile(URLPathPrefix::parts(vec!["foo", "bar", "baz"]), 0, 0, 0, "png".to_string()));
 
     }
 

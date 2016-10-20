@@ -22,7 +22,7 @@ use clap::ArgMatches;
 
 use slippy_map_tiles::Tile;
 
-use utils::{URL, parse_url};
+use utils::{URL, parse_url, URLPathPrefix};
 
 #[derive(Debug)]
 enum IompairTileJsonError {
@@ -58,38 +58,48 @@ pub fn serve(options: &ArgMatches) {
     }
 }
 
-fn tilejson_contents(path: &str, prefix: &Option<String>, urlprefix: &str, maxzoom: u8) -> Result<String, IompairTileJsonError> {
+fn tilejson_contents(path: &str, urlprefix: &str, pathprefix: &URLPathPrefix, maxzoom: u8) -> Result<String, IompairTileJsonError> {
     // FIXME Remove the unwraps and replace with proper error handling
-    let new_tiles = json::Json::from_str(&(match prefix {
-        &None => format!("[\"{}{{z}}/{{x}}/{{y}}.pbf\"]", urlprefix),
-        &Some(ref p) => format!("[\"{}{}/{{z}}/{{x}}/{{y}}.pbf\"]", urlprefix, p),
-    })).unwrap();
+    let new_tiles = json::Json::from_str(&format!("[\"{}{}{{z}}/{{x}}/{{y}}.pbf\"]", urlprefix, pathprefix.path_with_trailing_slash())).unwrap();
     let zoom_element = json::Json::U64(maxzoom as u64);
 
-    // FIXME don't fall over if there is no file
-    // TODO do proper std::path stuff here, instead of string concat
-    let directory = match prefix {
-        &None => format!("{}", path),
-        &Some(ref prefix) => format!("{}/{}", path, prefix),
-    };
+    let sub_paths = pathprefix.paths(path);
 
-    let tilejson_path = if Path::new(&format!("{}/index.json", directory)).exists() {
-        format!("{}/index.json", directory)
-    } else {
-        format!("{}/metadata.json", directory)
-    };
+    let mut tilejson_contents = Vec::with_capacity(sub_paths.len());
 
-    let mut f = try!(File::open(tilejson_path).map_err(IompairTileJsonError::OpenFileError));
-    let mut s = String::new();
-    try!(f.read_to_string(&mut s).map_err(IompairTileJsonError::ReadFileError));
+    // Collect all the existing tilejsons
+    for directory in sub_paths {
 
-    // Some back and forth to decode, replace and encode to get the new tilejson string
-    let tilejson_0 = try!(json::Json::from_str(&s).map_err(IompairTileJsonError::InvalidJsonError));
-    let mut tilejson = try!(tilejson_0.as_object().ok_or(IompairTileJsonError::NoJSONObjectError)).to_owned();
-    tilejson.insert("tiles".to_owned(), new_tiles);
-    tilejson.insert("maxzoom".to_owned(), zoom_element);
-    let new_tilejson_contents: String = try!(json::encode(&tilejson).map_err(IompairTileJsonError::JsonEncoderError));
+        // FIXME don't fall over if there is no file
+        // TODO do proper std::path stuff here, instead of string concat
+        let tilejson_path = if Path::new(&format!("{}/index.json", directory)).exists() {
+            format!("{}/index.json", directory)
+        } else {
+            format!("{}/metadata.json", directory)
+        };
 
+        let mut f = try!(File::open(tilejson_path).map_err(IompairTileJsonError::OpenFileError));
+        let mut s = String::new();
+        try!(f.read_to_string(&mut s).map_err(IompairTileJsonError::ReadFileError));
+
+        // Some back and forth to decode, replace and encode to get the new tilejson string
+        let tilejson_0 = try!(json::Json::from_str(&s).map_err(IompairTileJsonError::InvalidJsonError));
+        let mut tilejson = try!(tilejson_0.as_object().ok_or(IompairTileJsonError::NoJSONObjectError)).to_owned();
+        tilejson.insert("tiles".to_owned(), new_tiles.clone());
+        tilejson.insert("maxzoom".to_owned(), zoom_element.clone());
+        tilejson_contents.push(tilejson);
+    }
+
+    // now create a new one with the merged vector_layers attribute
+    // Copy the first one as base.
+    let mut tilejson_base = tilejson_contents.remove(0);
+    for mut tilejson in tilejson_contents.into_iter() {
+        let mut vector_layers = tilejson.remove("vector_layers").unwrap();
+        let mut vector_layers = vector_layers.as_array_mut().unwrap();
+        tilejson_base.get_mut("vector_layers").unwrap().as_array_mut().unwrap().append(vector_layers);
+    }
+
+    let new_tilejson_contents: String = try!(json::encode(&tilejson_base).map_err(IompairTileJsonError::JsonEncoderError));
     Ok(new_tilejson_contents)
 }
 
@@ -100,63 +110,59 @@ fn base_handler(req: Request, mut res: Response, use_tc: bool, path: &str, maxzo
     }
         
     match parse_url(&url, maxzoom) {
-        URL::Tilejson(prefix) => {
-            tilejson_handler(res, path, urlprefix, maxzoom, &prefix);
+        URL::Tilejson(pathprefix) => {
+            tilejson_handler(res, path, urlprefix, &pathprefix, maxzoom);
             if verbose {
-                match prefix {
-                    None => println!("/index.json"),
-                    Some(p) => println!("/{}/index.json", p),
-                }
+                println!("{}/index.json", pathprefix);
             }
         },
         URL::Invalid => {
             *res.status_mut() = hyper::status::StatusCode::NotFound;
         },
-        URL::Tile(prefix, z, x, y, ext) => {
-            tile_handler(res, use_tc, path, &prefix, z, x, y, ext);
+        URL::Tile(pathprefix, z, x, y, ext) => {
+            tile_handler(res, use_tc, path, &pathprefix, z, x, y, ext);
             if verbose {
-                match prefix {
-                    None => println!("/{}/{}/{}.pbf", z, x, y),
-                    Some(p) => println!("/{}/{}/{}/{}.pbf", p, z, x, y),
-                }
+                println!("{}/{}/{}/{}.pbf", pathprefix, z, x, y);
             }
         }
     }
 }
 
-fn tile_handler(mut res: Response, use_tc: bool, path: &str, prefix: &Option<String>, z: u8, x: u32, y: u32, ext: String) {
+fn tile_handler(mut res: Response, use_tc: bool, path: &str, pathprefix: &URLPathPrefix, z: u8, x: u32, y: u32, ext: String) {
     let tile = Tile::new(z, x, y);
     let tile = try_or_err!(tile.ok_or("ERR"), res, format!("Error when turning z {} x {} y {} into tileobject", z, x, y));
 
-    let this_prefix = match prefix {
-        &None => path.to_string(),
-        &Some(ref prefix) => format!("{}/{}", path, prefix),
-    };
+    let sub_paths = pathprefix.paths(path);
+    let mut vector_tile: Vec<u8> = Vec::with_capacity(sub_paths.len());
 
-    let path = if use_tc { format!("{}/{}", this_prefix, tile.tc_path(ext)) } else { format!("{}/{}", this_prefix, tile.ts_path(ext)) };
-    let this_tile_path = Path::new(&path);
+    for sub_path in sub_paths {
+        let path = if use_tc { format!("{}/{}", sub_path, tile.tc_path(&ext)) } else { format!("{}/{}", sub_path, tile.ts_path(&ext)) };
+        let this_tile_path = Path::new(&path);
 
-    // This is a stupid bit of hackery to ensure that s is initialised to /something/
-    let mut vector_tile_contents: Vec<u8> = Vec::new();
+        // This is a stupid bit of hackery to ensure that s is initialised to /something/
+        let mut this_vector_tile_contents: Vec<u8> = Vec::new();
     
-    if this_tile_path.exists() {
-        let mut file = try_or_err!(fs::File::open(this_tile_path), res, format!("Error when opening file {:?}", this_tile_path));
-        try_or_err!(file.read_to_end(&mut vector_tile_contents), res, format!("Error when trying to send vectortile contents to client"));
-    } else {
-        // File not found. This can happen in the middle of the ocean or something
-        // If we return a 404 then Kosmtik throws an error, instead return a 200. The results will
-        // be empty anyway
+        if this_tile_path.exists() {
+            let mut file = try_or_err!(fs::File::open(this_tile_path), res, format!("Error when opening file {:?}", this_tile_path));
+            try_or_err!(file.read_to_end(&mut this_vector_tile_contents), res, format!("Error when trying to send vectortile contents to client"));
+        } else {
+            // File not found. This can happen in the middle of the ocean or something
+            // If we return a 404 then Kosmtik throws an error, instead return a 200. The results will
+            // be empty anyway
+        }
+
+        vector_tile.append(&mut this_vector_tile_contents);
     }
 
     res.headers_mut().set(ContentType(Mime(TopLevel::Application, SubLevel::Ext("x-protobuf".to_owned()), vec![])));
-    res.send(&vector_tile_contents).unwrap_or_else(|e| {
+    res.send(&vector_tile).unwrap_or_else(|e| {
         println!("Error when trying to send tilejson to client: {:?}", e);
     });
 
 }
 
-fn tilejson_handler(mut res: Response, path: &str, urlprefix: &str, maxzoom: u8, prefix: &Option<String>) {
-    match tilejson_contents(path, &prefix, urlprefix, maxzoom) {
+fn tilejson_handler(mut res: Response, path: &str, urlprefix: &str, pathprefix: &URLPathPrefix, maxzoom: u8) {
+    match tilejson_contents(path, &urlprefix, pathprefix, maxzoom) {
         Err(e) => {
             println!("Error when reading tilejson file to serve up: {:?}", e);
             *res.status_mut() = hyper::status::StatusCode::InternalServerError;
