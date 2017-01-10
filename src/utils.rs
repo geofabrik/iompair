@@ -231,6 +231,14 @@ pub fn parse_url(url: &str, maxzoom: u8) -> URL {
     }
 }
 
+pub fn merge_vector_tiles(vector_tiles: Vec<Vec<u8>>) -> Vec<u8> {
+    // simple approach of file concatination
+    let mut output = Vec::with_capacity(vector_tiles.iter().map(|bytes| bytes.len()).sum());
+    for vector_tile in vector_tiles {
+        output.extend(vector_tile);
+    }
+    output
+}
 
 mod test {
     #[test]

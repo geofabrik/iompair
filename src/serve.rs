@@ -22,7 +22,7 @@ use clap::ArgMatches;
 
 use slippy_map_tiles::Tile;
 
-use utils::{URL, parse_url, URLPathPrefix};
+use utils::{URL, parse_url, URLPathPrefix, merge_vector_tiles};
 
 #[derive(Debug)]
 enum IompairTileJsonError {
@@ -133,7 +133,7 @@ fn tile_handler(mut res: Response, use_tc: bool, path: &str, pathprefix: &URLPat
     let tile = try_or_err!(tile.ok_or("ERR"), res, format!("Error when turning z {} x {} y {} into tileobject", z, x, y));
 
     let sub_paths = pathprefix.paths(path);
-    let mut vector_tile: Vec<u8> = Vec::with_capacity(sub_paths.len());
+    let mut vector_tiles: Vec<Vec<u8>> = Vec::with_capacity(sub_paths.len());
 
     for sub_path in sub_paths {
         let path = if use_tc { format!("{}/{}", sub_path, tile.tc_path(&ext)) } else { format!("{}/{}", sub_path, tile.ts_path(&ext)) };
@@ -151,8 +151,10 @@ fn tile_handler(mut res: Response, use_tc: bool, path: &str, pathprefix: &URLPat
             // be empty anyway
         }
 
-        vector_tile.append(&mut this_vector_tile_contents);
+        vector_tiles.push(this_vector_tile_contents);
     }
+
+    let vector_tile = merge_vector_tiles(vector_tiles);
 
     res.headers_mut().set(ContentType(Mime(TopLevel::Application, SubLevel::Ext("x-protobuf".to_owned()), vec![])));
     res.send(&vector_tile).unwrap_or_else(|e| {
