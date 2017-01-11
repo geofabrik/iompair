@@ -255,6 +255,9 @@ fn gzip(uncompressed_data: &[u8]) -> Vec<u8> {
 }
 
 
+/// Given several vector tile files, concatinate them into one, preserving order.
+///
+/// It currently gunzips all the files, concatinates the bytes, then gzip's the result
 pub fn merge_vector_tiles(vector_tiles: Vec<Vec<u8>>) -> Vec<u8> {
     // TODO remove empty elements
     // TODO if there is only one element, just return that.
