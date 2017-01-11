@@ -6,6 +6,7 @@ extern crate regex;
 extern crate simple_parallel;
 extern crate iter_progress;
 extern crate chrono;
+extern crate libflate;
 
 use clap::{Arg, App, SubCommand, ArgGroup};
 

@@ -1,5 +1,8 @@
 extern crate hyper;
 extern crate regex;
+extern crate libflate;
+
+use libflate::gzip::{Decoder,Encoder};
 
 use regex::Regex;
 
@@ -231,12 +234,42 @@ pub fn parse_url(url: &str, maxzoom: u8) -> URL {
     }
 }
 
+/// Given some gzip compressed bytes, uncompress them
+fn gunzip(compressed_data: &[u8]) -> Vec<u8> {
+    if compressed_data.len() == 0 {
+        // Otherwise gzip throws an error
+        // We can be passed in empty data if the file doesn't exist
+        return Vec::new();
+    }
+    let mut d = Decoder::new(compressed_data).unwrap();
+    let mut result = Vec::new();
+    d.read_to_end(&mut result).unwrap();
+    result
+}
+
+/// Given some bytes, compress them with gzip
+fn gzip(uncompressed_data: &[u8]) -> Vec<u8> {
+    let mut e = Encoder::new(Vec::new()).unwrap();
+    e.write_all(uncompressed_data).unwrap();
+    e.finish().into_result().unwrap()
+}
+
+
 pub fn merge_vector_tiles(vector_tiles: Vec<Vec<u8>>) -> Vec<u8> {
-    // simple approach of file concatination
+    // TODO remove empty elements
+    // TODO if there is only one element, just return that.
+
+    // unzip everything
+    let vector_tiles: Vec<_> = vector_tiles.iter().map(|x| gunzip(x)).collect();
+
     let mut output = Vec::with_capacity(vector_tiles.iter().map(|bytes| bytes.len()).sum());
     for vector_tile in vector_tiles {
         output.extend(vector_tile);
     }
+
+    // compress again
+    let output = gzip(&output);
+
     output
 }
 
