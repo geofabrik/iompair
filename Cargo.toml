@@ -4,7 +4,7 @@ description = "Work with Slippy map tile names, found in OpenStreetMap"
 keywords = ["openstreetmap", "osm", "vectortiles"]
 license = "GPL-3.0+"
 name = "iompair"
-version = "0.6.0"
+version = "0.7.0"
 
 [dependencies]
 chrono = "0.2"

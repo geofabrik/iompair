@@ -1,3 +1,24 @@
+<a name="v0.7.0"></a>
+## v0.7.0 (2017-01-11)
+
+
+#### Bug Fixes
+
+* **serve:**  Correct tiles attribute in TileJSON for prefixed tiles ([c774bdd8](c774bdd8))
+
+#### Features
+
+*   Produce better gzip concatinated files ([447ea521](447ea521))
+*   Support concatting tiles together ([21502af0](21502af0))
+* **serve:**
+  *  Support metadata.json if there's no index.json ([602cde4d](602cde4d))
+  *  added --verbose flag to print every URL served ([f2286c56](f2286c56))
+  *  Serving is now able to use prefix'ed ([2ffd315c](2ffd315c))
+  *  URLs can now be prefixed ([f62cf0fe](f62cf0fe))
+  *  Support TileStash safe layout as well as TileCache ([4d3e8d53](4d3e8d53))
+
+
+
 <a name="v0.6.0"></a>
 ## v0.6.0 (2016-08-12)
 
