@@ -259,21 +259,35 @@ fn gzip(uncompressed_data: &[u8]) -> Vec<u8> {
 ///
 /// It currently gunzips all the files, concatinates the bytes, then gzip's the result
 pub fn merge_vector_tiles(vector_tiles: Vec<Vec<u8>>) -> Vec<u8> {
-    // TODO remove empty elements
-    // TODO if there is only one element, just return that.
+    let mut vector_tiles: Vec<_> = vector_tiles.into_iter().filter(|bytes| bytes.len() > 0).collect();
+    match vector_tiles.len() {
+        0 => {
+            // Nothing, so return nothing
+            Vec::new()
+        },
+        1 => {
+            // Only one element, so just return that straight
+            // Optimization, saves us having to do unzipping and rezipping
+            vector_tiles.remove(0)
+        }
+        _ => {
+            // 2+ files to merge
 
-    // unzip everything
-    let vector_tiles: Vec<_> = vector_tiles.iter().map(|x| gunzip(x)).collect();
+            // unzip everything
+            let vector_tiles: Vec<_> = vector_tiles.into_iter().map(|x| gunzip(&x)).collect();
 
-    let mut output = Vec::with_capacity(vector_tiles.iter().map(|bytes| bytes.len()).sum());
-    for vector_tile in vector_tiles {
-        output.extend(vector_tile);
+            let mut output = Vec::with_capacity(vector_tiles.iter().map(|bytes| bytes.len()).sum());
+            for vector_tile in vector_tiles {
+                output.extend(vector_tile);
+            }
+
+            // compress again
+            let output = gzip(&output);
+
+            output
+        }
+
     }
-
-    // compress again
-    let output = gzip(&output);
-
-    output
 }
 
 mod test {
