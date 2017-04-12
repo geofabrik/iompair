@@ -293,6 +293,14 @@ pub fn merge_vector_tiles(vector_tiles: Vec<Vec<u8>>) -> Vec<u8> {
     }
 }
 
+// Has to derive Copy or there's an error about base_handler being Fn when it needs FnOnce
+#[derive(Debug,Copy,Clone)]
+pub enum DirectoryLayout {
+    TCPath,
+    TSPath,
+    ZXYPath,
+}
+
 mod test {
     #[test]
     fn test_urlprefix() {

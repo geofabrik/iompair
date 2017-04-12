@@ -13,25 +13,28 @@ use slippy_map_tiles::Tile;
 use iter_progress::ProgressableIter;
 use chrono::{DateTime, FixedOffset};
 
-use utils::{download_url_and_save_to_file, IompairError};
+use utils::{download_url_and_save_to_file, IompairError, DirectoryLayout};
 
-fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool, files_older_than: &Option<DateTime<FixedOffset>>) -> Result<(), IompairError> {
+fn dl_tile(tile: Tile, path: &str, path_format: DirectoryLayout, upstream_url: &str, always_download: bool, files_older_than: &Option<DateTime<FixedOffset>>) -> Result<(), IompairError> {
     let x = tile.x();
     let y = tile.y();
     let z = tile.zoom();
 
-    // FIXME replace with proper path opts
-    let path = format!("{}/{}", tc_path, tile.tc_path("pbf"));
-    let this_tile_tc_path = Path::new(&path);
+    let this_path = format!("{}/{}", path, match path_format {
+        DirectoryLayout::TCPath => tile.tc_path("pbf"),
+        DirectoryLayout::TSPath => tile.ts_path("pbf"),
+        DirectoryLayout::ZXYPath => tile.zxy_path("pbf"),
+    });
+    let this_path = Path::new(&this_path);
 
-    let should_download = if ! this_tile_tc_path.exists() {
+    let should_download = if ! this_path.exists() {
         true
     } else {
         if always_download {
             match *files_older_than {
                 None => { true },
                 Some(dt) => {
-                    let mtime = this_tile_tc_path.metadata().unwrap().mtime();
+                    let mtime = this_path.metadata().unwrap().mtime();
                     let cutoff = dt.timestamp();
                     mtime < cutoff
                 }
@@ -42,14 +45,14 @@ fn dl_tile(tile: Tile, tc_path: &str, upstream_url: &str, always_download: bool,
     };
 
     if should_download {
-        try!(download_url_and_save_to_file(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y), this_tile_tc_path));
+        try!(download_url_and_save_to_file(&format!("{}/{}/{}/{}.pbf", upstream_url, z, x, y), this_path));
     }
 
     Ok(())
 }
 
-fn dl_tilejson(tc_path: &str, upstream_url: &str) -> Result<(), IompairError> {
-    try!(download_url_and_save_to_file(&format!("{}/index.json", upstream_url), Path::new(&format!("{}/index.json", tc_path))));
+fn dl_tilejson(path: &str, upstream_url: &str) -> Result<(), IompairError> {
+    try!(download_url_and_save_to_file(&format!("{}/index.json", upstream_url), Path::new(&format!("{}/index.json", path))));
     Ok(())
 }
 
@@ -57,7 +60,8 @@ fn dl_tilejson(tc_path: &str, upstream_url: &str) -> Result<(), IompairError> {
 pub fn stuffer(options: &ArgMatches) {
 
     let upstream_url = options.value_of("upstream_url").unwrap().to_string();
-    let tc_path = options.value_of("tc_path").unwrap().to_string();
+    let path = options.value_of("tc_path").or(options.value_of("ts_path")).or(options.value_of("zxy_path")).unwrap().to_string();
+    let path_format = if options.is_present("tc_path") { DirectoryLayout::TCPath } else if options.is_present("ts_path") { DirectoryLayout::TSPath } else if options.is_present("zxy_path") { DirectoryLayout::ZXYPath } else { unreachable!() };
     let threads = options.value_of("threads").unwrap().parse().unwrap();
     let max_zoom = options.value_of("max-zoom").unwrap().parse().unwrap();
     let min_zoom: u8 = options.value_of("min-zoom").unwrap().parse().unwrap();
@@ -72,7 +76,7 @@ pub fn stuffer(options: &ArgMatches) {
 
 
     // Download the tilejson file and save it for later.
-    dl_tilejson(&tc_path, &upstream_url).unwrap_or_else(|e| {
+    dl_tilejson(&path, &upstream_url).unwrap_or_else(|e| {
         println!("Error occured when downloading tilejson: {:?}", e);
         println!("Aborting");
         return;
@@ -89,7 +93,7 @@ pub fn stuffer(options: &ArgMatches) {
         let iter = Box::new(Tile::all_to_zoom(max_zoom).filter(|&t| { t.zoom() >= min_zoom }));
         pool.for_(iter.progress(), |(state, tile)| {
             state.print_every_n_sec(5., format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
-            dl_tile(tile, &tc_path, &upstream_url, always_download, &files_older_than).unwrap_or_else(|e| {
+            dl_tile(tile, &path, path_format, &upstream_url, always_download, &files_older_than).unwrap_or_else(|e| {
                 println!("Error occured when downloading tile {:?}: {:?}", tile, e);
             });
         });
@@ -103,9 +107,9 @@ pub fn stuffer(options: &ArgMatches) {
                 let iter = b.tiles().filter(|&t| { t.zoom() >= min_zoom }).take_while(|&t| { t.zoom() <= max_zoom });
 
                 pool.for_(iter.progress(), |(state, tile)| {
-                    state.print_every_n_sec(5., format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
+                    state.print_every_n_sec(1., format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
                     //state.print_every_sec(100., format!("{} done ({}/sec), tile {:?}       \r", state.num_done(), state.rate(), tile));
-                    dl_tile(tile, &tc_path, &upstream_url, always_download, &files_older_than).unwrap_or_else(|e| {
+                    dl_tile(tile, &path, path_format, &upstream_url, always_download, &files_older_than).unwrap_or_else(|e| {
                         println!("Error occured when downloading tile {:?}: {:?}", tile, e);
                     });
                 });

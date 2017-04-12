@@ -22,7 +22,7 @@ use clap::ArgMatches;
 
 use slippy_map_tiles::Tile;
 
-use utils::{URL, parse_url, URLPathPrefix, merge_vector_tiles};
+use utils::{URL, parse_url, URLPathPrefix, merge_vector_tiles, DirectoryLayout};
 
 #[derive(Debug)]
 enum IompairTileJsonError {
@@ -33,12 +33,13 @@ enum IompairTileJsonError {
     JsonEncoderError(rustc_serialize::json::EncoderError),
 }
 
+
 pub fn serve(options: &ArgMatches) {
 
     let port = options.value_of("port").unwrap().to_string();
     // TODO make path absolute
-    let path = options.value_of("tc_path").or(options.value_of("ts_path")).unwrap().to_string();
-    let use_tc: bool = options.value_of("tc_path").is_some();
+    let path = options.value_of("tc_path").or(options.value_of("ts_path")).or(options.value_of("zxy_path")).unwrap().to_string();
+    let path_format = if options.is_present("tc_path") { DirectoryLayout::TCPath } else if options.is_present("ts_path") { DirectoryLayout::TSPath } else if options.is_present("zxy_path") { DirectoryLayout::ZXYPath } else { unreachable!() };
     let maxzoom: u8 = options.value_of("maxzoom").unwrap().parse().unwrap();
     let urlprefix = options.value_of("urlprefix").unwrap_or(&format!("http://localhost:{}/", port)).to_string();
     let verbose = options.is_present("verbose");
@@ -50,7 +51,7 @@ pub fn serve(options: &ArgMatches) {
     match Server::http(&uri[..]) {
         Err(e) => { println!("Error setting up server: {:?}", e); }
         Ok(server) => {
-            let startup = server.handle(move |req: Request, res: Response| { base_handler(req, res, use_tc, &path, maxzoom, &urlprefix, verbose) });
+            let startup = server.handle(move |req: Request, res: Response| { base_handler(req, res, path_format, &path, maxzoom, &urlprefix, verbose) });
             if let Err(e) = startup {
                 println!("Error when starting server: {:?}", e);
             }
@@ -103,7 +104,7 @@ fn tilejson_contents(path: &str, urlprefix: &str, pathprefix: &URLPathPrefix, ma
     Ok(new_tilejson_contents)
 }
 
-fn base_handler(req: Request, mut res: Response, use_tc: bool, path: &str, maxzoom: u8, urlprefix: &str, verbose: bool) {
+fn base_handler(req: Request, mut res: Response, path_format: DirectoryLayout, path: &str, maxzoom: u8, urlprefix: &str, verbose: bool) {
     let mut url: String = String::new();
     if let hyper::uri::RequestUri::AbsolutePath(ref u) = req.uri {
         url = u.clone();
@@ -120,7 +121,7 @@ fn base_handler(req: Request, mut res: Response, use_tc: bool, path: &str, maxzo
             *res.status_mut() = hyper::status::StatusCode::NotFound;
         },
         URL::Tile(pathprefix, z, x, y, ext) => {
-            tile_handler(res, use_tc, path, &pathprefix, z, x, y, ext);
+            tile_handler(res, path_format, path, &pathprefix, z, x, y, ext);
             if verbose {
                 println!("{}/{}/{}/{}.pbf", pathprefix, z, x, y);
             }
@@ -128,7 +129,7 @@ fn base_handler(req: Request, mut res: Response, use_tc: bool, path: &str, maxzo
     }
 }
 
-fn tile_handler(mut res: Response, use_tc: bool, path: &str, pathprefix: &URLPathPrefix, z: u8, x: u32, y: u32, ext: String) {
+fn tile_handler(mut res: Response, path_format: DirectoryLayout, path: &str, pathprefix: &URLPathPrefix, z: u8, x: u32, y: u32, ext: String) {
     let tile = Tile::new(z, x, y);
     let tile = try_or_err!(tile.ok_or("ERR"), res, format!("Error when turning z {} x {} y {} into tileobject", z, x, y));
 
@@ -136,7 +137,11 @@ fn tile_handler(mut res: Response, use_tc: bool, path: &str, pathprefix: &URLPat
     let mut vector_tiles: Vec<Vec<u8>> = Vec::with_capacity(sub_paths.len());
 
     for sub_path in sub_paths {
-        let path = if use_tc { format!("{}/{}", sub_path, tile.tc_path(&ext)) } else { format!("{}/{}", sub_path, tile.ts_path(&ext)) };
+        let path = format!("{}/{}", sub_path, match path_format {
+            DirectoryLayout::TCPath => tile.tc_path(&ext),
+            DirectoryLayout::TSPath => tile.ts_path(&ext),
+            DirectoryLayout::ZXYPath => tile.zxy_path(&ext),
+        });
         let this_tile_path = Path::new(&path);
 
         // This is a stupid bit of hackery to ensure that s is initialised to /something/
