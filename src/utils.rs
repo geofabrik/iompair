@@ -346,7 +346,5 @@ mod test {
         assert_eq!(parse_url("/foo__bar__baz/0/0/0.png", 22), URL::Tile(URLPathPrefix::parts(vec!["foo", "bar", "baz"]), 0, 0, 0, "png".to_string()));
 
     }
-
-
 }
 
