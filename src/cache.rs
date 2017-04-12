@@ -121,14 +121,15 @@ pub fn cache(options: &ArgMatches) {
             url = u.clone();
         }
             
+        // FIXME use prefix
         match parse_url(&url, 22) {
-            URL::Tilejson(prefix) => {
+            URL::Tilejson(_) => {
                 tilejson_handler(res, tilejson_contents);
             },
             URL::Invalid => {
                 *res.status_mut() = hyper::status::StatusCode::NotFound;
             },
-            URL::Tile(prefix, z, x, y, _) => {
+            URL::Tile(_, z, x, y, _) => {
                 tile_handler(res, tc_path, z, x, y, upstream_url);
             }
         }

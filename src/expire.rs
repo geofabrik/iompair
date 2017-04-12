@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::os::unix::fs::MetadataExt;
+#[allow(deprecated)]
 use std::os::unix::raw::time_t;
 use std::thread::sleep;
 use std::time::Duration;
@@ -20,6 +21,7 @@ use iter_progress::ProgressableIter;
 
 use utils::download_url_and_save_to_file;
 
+#[allow(deprecated)]
 fn dl_tile_if_older(tile: Tile, tc_path: &str, upstream_url: &str, expiry_mtime: time_t) {
     let x = tile.x();
     let y = tile.y();
@@ -130,8 +132,6 @@ pub fn expire(options: &ArgMatches) {
             }
         }
     }
-
-    println!("Exiting");
 
 }
 

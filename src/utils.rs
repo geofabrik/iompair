@@ -135,6 +135,7 @@ pub struct URLPathPrefix {
 }
 
 impl URLPathPrefix {
+    #[allow(unused)]
     /// Construct a new URLPathPrefix
     fn new<S: Into<String>>(parts: Option<Vec<S>>) -> Self {
         // Tried to have 
@@ -154,9 +155,11 @@ impl URLPathPrefix {
         URLPathPrefix{ parts: new_parts }
     }
 
+    #[allow(unused)]
     /// Shortcut to create a URLPathPrefix with no prefix
     fn none() -> Self { URLPathPrefix{ parts: None } }
 
+    #[allow(unused)]
     /// Shortcut to create a URLPathPrefix with the following parts
     fn parts<S: Into<String>>(parts: Vec<S>) -> Self {
         URLPathPrefix::new(Some(parts))
