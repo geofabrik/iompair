@@ -125,6 +125,7 @@ fn main() {
                  .help("How long (in SEC) to wait between checks of the expire directory. Default 60 sec").value_name("SEC"))
             )
         .subcommand(SubCommand::with_name("tilelist")
+            .about("Generate a Z/X/Y tile list (to stdout) based on tiles")
             .arg(Arg::with_name("max-zoom").short("z").long("max-zoom")
                  .takes_value(true).required(false).default_value("14")
                  .help("Maximum zoom to go to").value_name("ZOOM"))
