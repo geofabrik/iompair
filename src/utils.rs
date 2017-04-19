@@ -1,6 +1,7 @@
 extern crate hyper;
 extern crate regex;
 extern crate libflate;
+extern crate rustc_serialize;
 
 use libflate::gzip::{Decoder,Encoder};
 
@@ -15,6 +16,17 @@ use std::time::Duration;
 use std::fmt;
 
 use hyper::Client;
+
+#[derive(Debug)]
+pub enum IompairTileJsonError {
+    OpenFileError(::std::io::Error),
+    ReadFileError(::std::io::Error),
+    InvalidJsonError(rustc_serialize::json::BuilderError),
+    NoJSONObjectError,
+    JsonEncoderError(rustc_serialize::json::EncoderError),
+}
+
+
 
 // Do something that returns a Result. If there's an error, the response will be set to an
 // appropriate code, optionally something printed to stdout, and the handler will return.

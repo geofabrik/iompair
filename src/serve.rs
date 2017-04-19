@@ -18,21 +18,9 @@ use rustc_serialize::json;
 
 use clap::ArgMatches;
 
-//use rustc_serialize::json;
-
 use slippy_map_tiles::Tile;
 
-use utils::{URL, parse_url, URLPathPrefix, merge_vector_tiles, DirectoryLayout};
-
-#[derive(Debug)]
-enum IompairTileJsonError {
-    OpenFileError(::std::io::Error),
-    ReadFileError(::std::io::Error),
-    InvalidJsonError(rustc_serialize::json::BuilderError),
-    NoJSONObjectError,
-    JsonEncoderError(rustc_serialize::json::EncoderError),
-}
-
+use utils::{URL, parse_url, URLPathPrefix, merge_vector_tiles, DirectoryLayout, IompairTileJsonError};
 
 pub fn serve(options: &ArgMatches) {
 
