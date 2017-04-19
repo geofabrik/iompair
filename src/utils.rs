@@ -58,6 +58,15 @@ macro_rules! try_or_err {
             return;
         }
     });
+
+    ($e:expr, $res:ident, $errmsg:expr, Ok($result:ident) => $ok:block) => (match $e {
+        Ok($result) => $ok,
+        Err(e) => {
+            println!("{} {:?}", $errmsg, e);
+            *$res.status_mut() = hyper::status::StatusCode::InternalServerError;
+            return;
+        }
+    });
 }
 
 #[derive(Debug)]
