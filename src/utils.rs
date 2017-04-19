@@ -173,7 +173,7 @@ impl URLPathPrefix {
 
     #[allow(unused)]
     /// Shortcut to create a URLPathPrefix with the following parts
-    fn parts<S: Into<String>>(parts: Vec<S>) -> Self {
+    fn from_parts<S: Into<String>>(parts: Vec<S>) -> Self {
         URLPathPrefix::new(Some(parts))
     }
 
@@ -326,10 +326,10 @@ mod test {
         let empty_vec: Vec<String> = vec![];
 
         assert_eq!(URLPathPrefix::parse(none_string.clone()), URLPathPrefix::new(none_vec));
-        assert_eq!(URLPathPrefix::parse(Some("")), URLPathPrefix::parts(empty_vec));
-        assert_eq!(URLPathPrefix::parse(Some("abc")), URLPathPrefix::parts(vec!["abc".to_string()]));
-        assert_eq!(URLPathPrefix::parse(Some("abc_xyz")), URLPathPrefix::parts(vec!["abc_xyz".to_string()]));
-        assert_eq!(URLPathPrefix::parse(Some("abc__xyz")), URLPathPrefix::parts(vec!["abc".to_string(), "xyz".to_string()]));
+        assert_eq!(URLPathPrefix::parse(Some("")), URLPathPrefix::from_parts(empty_vec));
+        assert_eq!(URLPathPrefix::parse(Some("abc")), URLPathPrefix::from_parts(vec!["abc".to_string()]));
+        assert_eq!(URLPathPrefix::parse(Some("abc_xyz")), URLPathPrefix::from_parts(vec!["abc_xyz".to_string()]));
+        assert_eq!(URLPathPrefix::parse(Some("abc__xyz")), URLPathPrefix::from_parts(vec!["abc".to_string(), "xyz".to_string()]));
 
         assert_eq!(URLPathPrefix::parse(none_string.clone()).paths("/tmp"), vec!["/tmp"]);
         assert_eq!(URLPathPrefix::parse(Some("abc")).paths("/tmp"), vec!["/tmp/abc"]);
@@ -348,16 +348,16 @@ mod test {
         assert_eq!(parse_url("/2/12/12.png", 22), URL::Tile(URLPathPrefix::none(), 2, 12, 12, "png".to_owned()));
         assert_eq!(parse_url("/2/12/12.png", 1), URL::Invalid);
 
-        assert_eq!(parse_url("/foobar/index.json", 22), URL::Tilejson(URLPathPrefix::parts(vec!["foobar"])));
-        assert_eq!(parse_url("/foobar/2/12/12.png", 22), URL::Tile(URLPathPrefix::parts(vec!["foobar"]), 2, 12, 12, "png".to_owned()));
-        assert_eq!(parse_url("/HELLO_there-number-3/2/12/12.png", 22), URL::Tile(URLPathPrefix::parts(vec!["HELLO_there-number-3"]), 2, 12, 12, "png".to_owned()));
+        assert_eq!(parse_url("/foobar/index.json", 22), URL::Tilejson(URLPathPrefix::from_parts(vec!["foobar"])));
+        assert_eq!(parse_url("/foobar/2/12/12.png", 22), URL::Tile(URLPathPrefix::from_parts(vec!["foobar"]), 2, 12, 12, "png".to_owned()));
+        assert_eq!(parse_url("/HELLO_there-number-3/2/12/12.png", 22), URL::Tile(URLPathPrefix::from_parts(vec!["HELLO_there-number-3"]), 2, 12, 12, "png".to_owned()));
         assert_eq!(parse_url("/no spaces/2/12/12.png", 22), URL::Invalid);
         assert_eq!(parse_url("bad bad bad no spaces/2/12/12.png", 22), URL::Invalid);
 
-        assert_eq!(parse_url("/foo__bar/index.json", 22), URL::Tilejson(URLPathPrefix::parts(vec!["foo", "bar"])));
-        assert_eq!(parse_url("/foo__bar/0/0/0.png", 22), URL::Tile(URLPathPrefix::parts(vec!["foo", "bar"]), 0, 0, 0, "png".to_string()));
-        assert_eq!(parse_url("/bar__foo/0/0/0.png", 22), URL::Tile(URLPathPrefix::parts(vec!["bar", "foo"]), 0, 0, 0, "png".to_string()));
-        assert_eq!(parse_url("/foo__bar__baz/0/0/0.png", 22), URL::Tile(URLPathPrefix::parts(vec!["foo", "bar", "baz"]), 0, 0, 0, "png".to_string()));
+        assert_eq!(parse_url("/foo__bar/index.json", 22), URL::Tilejson(URLPathPrefix::from_parts(vec!["foo", "bar"])));
+        assert_eq!(parse_url("/foo__bar/0/0/0.png", 22), URL::Tile(URLPathPrefix::from_parts(vec!["foo", "bar"]), 0, 0, 0, "png".to_string()));
+        assert_eq!(parse_url("/bar__foo/0/0/0.png", 22), URL::Tile(URLPathPrefix::from_parts(vec!["bar", "foo"]), 0, 0, 0, "png".to_string()));
+        assert_eq!(parse_url("/foo__bar__baz/0/0/0.png", 22), URL::Tile(URLPathPrefix::from_parts(vec!["foo", "bar", "baz"]), 0, 0, 0, "png".to_string()));
 
         assert_eq!(parse_url("/index.json?timeout=10", 22), URL::Tilejson(URLPathPrefix::none()));
         assert_eq!(parse_url("/index.json?timeout=aaa", 22), URL::Invalid);
