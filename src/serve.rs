@@ -7,6 +7,7 @@ use std::io::Read;
 use std::fs;
 use std::fs::File;
 use std::path::Path;
+use std::collections::HashMap;
 
 use hyper::Server;
 use hyper::server::Request;
@@ -20,7 +21,7 @@ use clap::ArgMatches;
 
 use slippy_map_tiles::Tile;
 
-use utils::{URL, parse_url, URLPathPrefix, merge_vector_tiles, DirectoryLayout, IompairTileJsonError};
+use utils::{save_to_file, download_url, URL, parse_url, URLPathPrefix, merge_vector_tiles, DirectoryLayout, IompairTileJsonError, download_url_and_save_to_file};
 
 pub fn serve(options: &ArgMatches) {
 
@@ -32,16 +33,46 @@ pub fn serve(options: &ArgMatches) {
     let urlprefix = options.value_of("urlprefix").unwrap_or(&format!("http://localhost:{}/", port)).to_string();
     let verbose = options.is_present("verbose");
     
-    // TODO read in tilejson file, change it and save it. Don't regenerate every request.
+    let upstreams = parse_out_upstreams(options.values_of("upstream_url"));
 
-    println!("Serving on port {}", port);
+    ensure_tilejson_files_exist(&path, &upstreams);
+
+    println!("Serving on port {} with the following upstreams {:?}", port, upstreams);
     let uri = format!("127.0.0.1:{}", port);
     match Server::http(&uri[..]) {
         Err(e) => { println!("Error setting up server: {:?}", e); }
         Ok(server) => {
-            let startup = server.handle(move |req: Request, res: Response| { base_handler(req, res, path_format, &path, maxzoom, &urlprefix, verbose) });
+            let startup = server.handle(move |req: Request, res: Response| { base_handler(req, res, path_format, &path, maxzoom, &urlprefix, verbose, &upstreams) });
             if let Err(e) = startup {
                 println!("Error when starting server: {:?}", e);
+            }
+        }
+    }
+}
+
+/// Look at all the upstreams specified, and if the index.json (or metadata.json) doesn't exist,
+/// download it from the upstream
+fn ensure_tilejson_files_exist(path: &str, upstreams: &HashMap<String, String>) {
+    for (prefix, upstream_url) in upstreams {
+        let tilejson_url = format!("{}/index.json", upstream_url);
+        let tilejson_path = if Path::new(&format!("{}/{}/metadata.json", path, prefix)).exists() {
+            format!("{}/{}/metadata.json", path, prefix)
+        } else {
+            format!("{}/{}/index.json", path, prefix)
+        };
+        let tilejson_path = Path::new(&tilejson_path);
+
+
+        if ! tilejson_path.exists() {
+            println!("Need to download {}", tilejson_url);
+            match download_url_and_save_to_file(&tilejson_url, tilejson_path) {
+                Ok(_) => {
+                    println!("Downloaded tilejson for prefix {}, saved to {:?}", prefix, tilejson_path)
+                },
+                Err(e) => {
+                    println!("Error downloading the tilejson for prefix {}, Error was: {:?}.\nExiting", prefix, e);
+                    ::std::process::exit(1);
+                }
             }
         }
     }
@@ -92,7 +123,7 @@ fn tilejson_contents(path: &str, urlprefix: &str, pathprefix: &URLPathPrefix, ma
     Ok(new_tilejson_contents)
 }
 
-fn base_handler(req: Request, mut res: Response, path_format: DirectoryLayout, path: &str, maxzoom: u8, urlprefix: &str, verbose: bool) {
+fn base_handler(req: Request, mut res: Response, path_format: DirectoryLayout, path: &str, maxzoom: u8, urlprefix: &str, verbose: bool, upstreams: &HashMap<String, String>) {
     let mut url: String = String::new();
     if let hyper::uri::RequestUri::AbsolutePath(ref u) = req.uri {
         url = u.clone();
@@ -109,7 +140,7 @@ fn base_handler(req: Request, mut res: Response, path_format: DirectoryLayout, p
             *res.status_mut() = hyper::status::StatusCode::NotFound;
         },
         URL::Tile(pathprefix, z, x, y, ext) => {
-            tile_handler(res, path_format, path, &pathprefix, z, x, y, ext);
+            tile_handler(res, path_format, path, &pathprefix, z, x, y, ext, &upstreams);
             if verbose {
                 println!("{}/{}/{}/{}.pbf", pathprefix, z, x, y);
             }
@@ -117,14 +148,15 @@ fn base_handler(req: Request, mut res: Response, path_format: DirectoryLayout, p
     }
 }
 
-fn tile_handler(mut res: Response, path_format: DirectoryLayout, path: &str, pathprefix: &URLPathPrefix, z: u8, x: u32, y: u32, ext: String) {
+fn tile_handler(mut res: Response, path_format: DirectoryLayout, path: &str, pathprefix: &URLPathPrefix, z: u8, x: u32, y: u32, ext: String, upstreams: &HashMap<String, String>) {
     let tile = Tile::new(z, x, y);
     let tile = try_or_err!(tile.ok_or("ERR"), res, format!("Error when turning z {} x {} y {} into tileobject", z, x, y));
 
-    let sub_paths = pathprefix.paths(path);
-    let mut vector_tiles: Vec<Vec<u8>> = Vec::with_capacity(sub_paths.len());
+    let mut vector_tiles: Vec<Vec<u8>> = Vec::with_capacity(pathprefix.len());
 
-    for sub_path in sub_paths {
+    for prefix in pathprefix.parts() {
+
+        let sub_path = format!("{}/{}", path, prefix);
         let path = format!("{}/{}", sub_path, match path_format {
             DirectoryLayout::TCPath => tile.tc_path(&ext),
             DirectoryLayout::TSPath => tile.ts_path(&ext),
@@ -139,9 +171,34 @@ fn tile_handler(mut res: Response, path_format: DirectoryLayout, path: &str, pat
             let mut file = try_or_err!(fs::File::open(this_tile_path), res, format!("Error when opening file {:?}", this_tile_path));
             try_or_err!(file.read_to_end(&mut this_vector_tile_contents), res, format!("Error when trying to send vectortile contents to client"));
         } else {
-            // File not found. This can happen in the middle of the ocean or something
-            // If we return a 404 then Kosmtik throws an error, instead return a 200. The results will
-            // be empty anyway
+            // File not found, look at our upstream sources if this prefix exists (which also
+            // handles cases where /no/ upstreams have been specified)
+            // If we don't have any upstream sources for this prefix, then we return (and save)
+            // nothing.
+            // TODO are there too many print statements here?
+            if let Some(upstream_prefix) = upstreams.get(&prefix) {
+                let upstream_url = format!("{}/{}/{}/{}.pbf", upstream_prefix, z, x, y);
+                println!("Cache miss {}/{}/{}/{}, downloading... ", prefix, z, x, y);
+
+                match download_url(&upstream_url, 10) {
+                    Err(e) => {
+                        println!("Cache miss {}/{}/{}/{} and error downloading file: {:?}", prefix, z, x, y, e);
+                        *res.status_mut() = hyper::status::StatusCode::InternalServerError;
+                        return;
+                    }
+                    Ok(mut new_bytes) => {
+                        this_vector_tile_contents.append(&mut new_bytes);
+                        match save_to_file(this_tile_path, &this_vector_tile_contents) {
+                            Ok(_) => { println!("Cache miss {}/{}/{}/{} downloaded and saved in {:?}", prefix, z, x, y, this_tile_path); }
+                            Err(e) => {
+                                println!("Cache miss {}/{}/{}/{} and error downloading file: {:?}", prefix, z, x, y, e);
+                                *res.status_mut() = hyper::status::StatusCode::InternalServerError;
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         vector_tiles.push(this_vector_tile_contents);
@@ -149,7 +206,12 @@ fn tile_handler(mut res: Response, path_format: DirectoryLayout, path: &str, pat
 
     let vector_tile = merge_vector_tiles(vector_tiles);
 
+    *res.status_mut() = hyper::status::StatusCode::Ok;
     res.headers_mut().set(ContentType(Mime(TopLevel::Application, SubLevel::Ext("x-protobuf".to_owned()), vec![])));
+
+    // FIXME Cache headers? This says "no caching", which is probably not what's wanted
+    //res.headers_mut().set(CacheControl(vec![CacheDirective::Private, CacheDirective::NoCache, CacheDirective::MaxAge(0)]));
+
     res.send(&vector_tile).unwrap_or_else(|e| {
         println!("Error when trying to send tilejson to client: {:?}", e);
     });
@@ -168,4 +230,22 @@ fn tilejson_handler(mut res: Response, path: &str, urlprefix: &str, pathprefix: 
             });
         }
     };
+}
+
+fn parse_out_upstreams(args: Option<clap::Values>) -> HashMap<String, String> {
+    let mut upstreams: HashMap<String, String> = HashMap::new();
+    if let Some(raw) = args {
+        let raw: Vec<_> = raw.collect();
+        if raw.len() > 0 {
+            let mut i = 0;
+            loop {
+                // this is like the past
+                // currently unstable step_by on range will help
+                if i >= raw.len() { break; }
+                upstreams.insert(raw[i].to_string(), raw[i+1].to_string());
+                i += 2;
+            }
+        }
+    }
+    upstreams
 }
