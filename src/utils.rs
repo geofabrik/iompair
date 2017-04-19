@@ -229,7 +229,9 @@ pub fn parse_url(url: &str, maxzoom: u8) -> URL {
     }
     // FIXME reuse regex
 
-    if let Some(caps) = Regex::new("^(/(?P<prefix>[a-zA-Z0-9_-]+))?/index.json$").unwrap().captures(url) {
+    // TODO Use a proper URL parsing library, not just regexes
+
+    if let Some(caps) = Regex::new("^(/(?P<prefix>[a-zA-Z0-9_-]+))?/index.json(\\?timeout=[0-9]+)?$").unwrap().captures(url) {
         URL::Tilejson(URLPathPrefix::parse(caps.name("prefix")))
     } else {
         let re = Regex::new("^(/(?P<prefix>[a-zA-Z0-9_-]+))?/(?P<z>[0-9]?[0-9])/(?P<x>[0-9]+)/(?P<y>[0-9]+)\\.(?P<ext>.{3,4})$").unwrap();
@@ -356,6 +358,9 @@ mod test {
         assert_eq!(parse_url("/foo__bar/0/0/0.png", 22), URL::Tile(URLPathPrefix::parts(vec!["foo", "bar"]), 0, 0, 0, "png".to_string()));
         assert_eq!(parse_url("/bar__foo/0/0/0.png", 22), URL::Tile(URLPathPrefix::parts(vec!["bar", "foo"]), 0, 0, 0, "png".to_string()));
         assert_eq!(parse_url("/foo__bar__baz/0/0/0.png", 22), URL::Tile(URLPathPrefix::parts(vec!["foo", "bar", "baz"]), 0, 0, 0, "png".to_string()));
+
+        assert_eq!(parse_url("/index.json?timeout=10", 22), URL::Tilejson(URLPathPrefix::none()));
+        assert_eq!(parse_url("/index.json?timeout=aaa", 22), URL::Invalid);
 
     }
 }
