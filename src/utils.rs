@@ -211,6 +211,14 @@ impl URLPathPrefix {
         }
     }
 
+    /// How many parts are in this?
+    pub fn len(&self) -> usize {
+        match self.parts {
+            None => 0,
+            Some(ref p) => p.len(),
+        }
+    }
+
 }
 
 impl fmt::Display for URLPathPrefix {
