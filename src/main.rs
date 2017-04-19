@@ -14,13 +14,11 @@ use clap::{Arg, App, SubCommand, ArgGroup};
 #[macro_use]
 mod utils;
 
-mod cache;
 mod serve;
 mod stuffer;
 mod expire;
 mod tilelist;
 
-use cache::cache;
 use serve::serve;
 use stuffer::stuffer;
 use expire::expire;
@@ -30,21 +28,6 @@ fn main() {
 
     let options = App::new("iompair")
         .about("Work with vector tiles")
-        .subcommand(SubCommand::with_name("cache")
-            .about("Cache an upstream vector tile source")
-            .arg(Arg::with_name("port").short("p").long("port")
-                 .takes_value(true).required(true)
-                 .help("Port to listen on").value_name("PORT"))
-            .arg(Arg::with_name("upstream_url").short("u").long("upstream")
-                 .takes_value(true).required(true)
-                 .help("URL of the upstream vector tiles producer").value_name("URL"))
-            .arg(Arg::with_name("tc_path").short("c").long("tc-path")
-                 .takes_value(true).required(true)
-                 .help("Directory to use as a tile cache.").value_name("PATH"))
-            .arg(Arg::with_name("maxzoom").short("z").long("max-zoom")
-                 .takes_value(true).required(false).default_value("14")
-                 .help("Only serve zoom up to this level").value_name("ZOOM"))
-            )
         .subcommand(SubCommand::with_name("serve")
             .about("Serve a tile cache directory")
             .arg(Arg::with_name("port").short("p").long("port")
@@ -147,7 +130,6 @@ fn main() {
         .get_matches();
 
     match options.subcommand() {
-        ("cache", Some(options)) => { cache(options); },
         ("serve", Some(options)) => { serve(options); },
         ("stuffer", Some(options)) => { stuffer(options); },
         ("expire", Some(options)) => { expire(options); },
