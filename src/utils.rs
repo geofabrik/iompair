@@ -202,6 +202,15 @@ impl URLPathPrefix {
         }
     }
 
+    /// Convert to a vec of prefixes. if it's None, then an empty Vec will be returned
+    pub fn parts(&self) -> Vec<String> {
+        // TODO there is probably an easier way to use references
+        match self.parts {
+            None => Vec::new(),
+            Some(ref p) => p.clone(),
+        }
+    }
+
 }
 
 impl fmt::Display for URLPathPrefix {
