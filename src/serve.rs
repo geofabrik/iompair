@@ -21,7 +21,7 @@ use clap::ArgMatches;
 
 use slippy_map_tiles::Tile;
 
-use utils::{save_to_file, download_url, URL, parse_url, URLPathPrefix, merge_vector_tiles, DirectoryLayout, IompairTileJsonError, download_url_and_save_to_file};
+use utils::{save_to_file, download_url, URL, parse_url, URLPathPrefix, merge_vector_tiles, DirectoryLayout, IompairTileJsonError};
 
 pub fn serve(options: &ArgMatches) {
 
@@ -35,7 +35,7 @@ pub fn serve(options: &ArgMatches) {
     
     let upstreams = parse_out_upstreams(options.values_of("upstream_url"));
 
-    ensure_tilejson_files_exist(&path, &upstreams);
+    ensure_tilejson_files_exist_and_upstreams_work(&path, &upstreams);
 
     println!("Serving on port {} with the following upstreams {:?}", port, upstreams);
     let uri = format!("127.0.0.1:{}", port);
@@ -50,9 +50,10 @@ pub fn serve(options: &ArgMatches) {
     }
 }
 
-/// Look at all the upstreams specified, and if the index.json (or metadata.json) doesn't exist,
-/// download it from the upstream
-fn ensure_tilejson_files_exist(path: &str, upstreams: &HashMap<String, String>) {
+/// Look at all the upstreams specified, and confirm that those upstreams work, by downloading the
+/// tilejson data. If that local tilejson file doesn't exist, then that will be saved locally for
+/// future use.
+fn ensure_tilejson_files_exist_and_upstreams_work(path: &str, upstreams: &HashMap<String, String>) {
     for (prefix, upstream_url) in upstreams {
         let tilejson_url = format!("{}/index.json", upstream_url);
         let tilejson_path = if Path::new(&format!("{}/{}/metadata.json", path, prefix)).exists() {
@@ -62,18 +63,24 @@ fn ensure_tilejson_files_exist(path: &str, upstreams: &HashMap<String, String>) 
         };
         let tilejson_path = Path::new(&tilejson_path);
 
-
-        if ! tilejson_path.exists() {
-            println!("Need to download {}", tilejson_url);
-            match download_url_and_save_to_file(&tilejson_url, tilejson_path) {
-                Ok(_) => {
-                    println!("Downloaded tilejson for prefix {}, saved to {:?}", prefix, tilejson_path)
-                },
-                Err(e) => {
-                    println!("Error downloading the tilejson for prefix {}, Error was: {:?}.\nExiting", prefix, e);
-                    ::std::process::exit(1);
+        match download_url(&tilejson_url, 5) {
+            Err(e) => {
+                println!("Upstream tile source ({}) for prefix \"{}\" isn't working. Error {:?} when trying to download url {}", upstream_url, prefix, e, tilejson_url);
+                ::std::process::exit(2);
+            },
+            Ok(bytes) => {
+                if ! tilejson_path.exists() {
+                    match save_to_file(tilejson_path, &bytes) {
+                        Ok(_) => {
+                            println!("Downloaded tilejson for prefix {}, saved to {:?}", prefix, tilejson_path)
+                        },
+                        Err(e) => {
+                            println!("Error downloading the tilejson for prefix {}, Error was: {:?}.\nExiting", prefix, e);
+                            ::std::process::exit(1);
+                        }
+                    }
                 }
-            }
+            },
         }
     }
 }
