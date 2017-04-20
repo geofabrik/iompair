@@ -54,7 +54,7 @@ fn main() {
             .group(ArgGroup::with_name("path").args(&["tc_path", "ts_path", "zxy_path"]).required(true))
             .arg(Arg::with_name("upstream_url").short("u").long("upstream")
                  .takes_value(true).multiple(true).number_of_values(2)
-                 .help("URL of the upstream vector tiles producer").value_name("URL"))
+                 .help("Local prefix & the URL of the upstream vector tiles producer(s)").value_name("PREFIX URL"))
             )
         .subcommand(SubCommand::with_name("stuffer")
             .about("Populate a tile cache directory with all the tiles in an area")
