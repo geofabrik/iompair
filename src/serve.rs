@@ -149,15 +149,12 @@ fn base_handler(req: Request, mut res: Response, path_format: DirectoryLayout, p
             *res.status_mut() = hyper::status::StatusCode::NotFound;
         },
         URL::Tile(pathprefix, z, x, y, ext) => {
-            tile_handler(res, path_format, path, &pathprefix, z, x, y, ext, &upstreams, post_fetch_command);
-            if verbose {
-                println!("{}/{}/{}/{}.pbf", pathprefix, z, x, y);
-            }
+            tile_handler(res, path_format, path, &pathprefix, z, x, y, ext, &upstreams, post_fetch_command, verbose);
         }
     }
 }
 
-fn tile_handler(mut res: Response, path_format: DirectoryLayout, path: &str, pathprefix: &URLPathPrefix, z: u8, x: u32, y: u32, ext: String, upstreams: &HashMap<String, String>, post_fetch_command: &Option<String>) {
+fn tile_handler(mut res: Response, path_format: DirectoryLayout, path: &str, pathprefix: &URLPathPrefix, z: u8, x: u32, y: u32, ext: String, upstreams: &HashMap<String, String>, post_fetch_command: &Option<String>, verbose: bool) {
     let tile = Tile::new(z, x, y);
     let tile = try_or_err!(tile.ok_or("ERR"), res, format!("Error when turning z {} x {} y {} into tileobject", z, x, y));
 
@@ -187,11 +184,11 @@ fn tile_handler(mut res: Response, path_format: DirectoryLayout, path: &str, pat
             // TODO are there too many print statements here?
             if let Some(upstream_prefix) = upstreams.get(&prefix) {
                 let upstream_url = format!("{}/{}/{}/{}.pbf", upstream_prefix, z, x, y);
-                println!("Cache miss {}/{}/{}/{}, downloading... ", prefix, z, x, y);
+                if verbose { println!("Cache miss {}/{}/{}/{}, downloading... ", prefix, z, x, y); }
 
                 match download_url(&upstream_url, 10) {
                     Err(e) => {
-                        println!("Cache miss {}/{}/{}/{} and error downloading file: {:?}", prefix, z, x, y, e);
+                        if verbose { println!("Cache miss {}/{}/{}/{} and error downloading file: {:?}", prefix, z, x, y, e); }
                         *res.status_mut() = hyper::status::StatusCode::InternalServerError;
                         return;
                     }
@@ -199,16 +196,18 @@ fn tile_handler(mut res: Response, path_format: DirectoryLayout, path: &str, pat
                         this_vector_tile_contents.append(&mut new_bytes);
                         match save_to_file(this_tile_path, &this_vector_tile_contents) {
                             Ok(_) => {
-                                println!("Cache miss {}/{}/{}/{} downloaded and saved in {:?}", prefix, z, x, y, this_tile_path);
+                                if verbose { println!("Cache miss {}/{}/{}/{} downloaded and saved in {:?}", prefix, z, x, y, this_tile_path); }
                                 if let &Some(ref cmd) = post_fetch_command {
                                     // Run the command now that we have downloaded the file
                                     Command::new(cmd).arg(this_tile_path).status().ok();
                                     // we don't care about the output status
-                                    println!("Ran the command {} for the file {:?}", cmd, this_tile_path);
+                                    if verbose {
+                                        println!("Ran the command {} for the file {:?}", cmd, this_tile_path);
+                                    }
                                 }
                             },
                             Err(e) => {
-                                println!("Cache miss {}/{}/{}/{} and error downloading file: {:?}", prefix, z, x, y, e);
+                                if verbose { println!("Cache miss {}/{}/{}/{} and error downloading file: {:?}", prefix, z, x, y, e); }
                                 *res.status_mut() = hyper::status::StatusCode::InternalServerError;
                                 return;
                             },
@@ -232,6 +231,8 @@ fn tile_handler(mut res: Response, path_format: DirectoryLayout, path: &str, pat
     res.send(&vector_tile).unwrap_or_else(|e| {
         println!("Error when trying to send tilejson to client: {:?}", e);
     });
+
+    if verbose { println!("{}/{}/{}/{}.pbf", pathprefix, z, x, y); }
 
 }
 
