@@ -8,6 +8,7 @@ use std::fs;
 use std::fs::File;
 use std::path::Path;
 use std::collections::HashMap;
+use std::process::Command;
 
 use hyper::Server;
 use hyper::server::Request;
@@ -32,6 +33,7 @@ pub fn serve(options: &ArgMatches) {
     let maxzoom: u8 = options.value_of("maxzoom").unwrap().parse().unwrap();
     let urlprefix = options.value_of("urlprefix").unwrap_or(&format!("http://localhost:{}/", port)).to_string();
     let verbose = options.is_present("verbose");
+    let post_fetch_command: Option<String> = options.value_of("post-fetch-command").map(|s| s.to_string());
     
     let upstreams = parse_out_upstreams(options.values_of("upstream_url"));
 
@@ -42,7 +44,7 @@ pub fn serve(options: &ArgMatches) {
     match Server::http(&uri[..]) {
         Err(e) => { println!("Error setting up server: {:?}", e); }
         Ok(server) => {
-            let startup = server.handle(move |req: Request, res: Response| { base_handler(req, res, path_format, &path, maxzoom, &urlprefix, verbose, &upstreams) });
+            let startup = server.handle(move |req: Request, res: Response| { base_handler(req, res, path_format, &path, maxzoom, &urlprefix, verbose, &upstreams, &post_fetch_command) });
             if let Err(e) = startup {
                 println!("Error when starting server: {:?}", e);
             }
@@ -130,7 +132,7 @@ fn tilejson_contents(path: &str, urlprefix: &str, pathprefix: &URLPathPrefix, ma
     Ok(new_tilejson_contents)
 }
 
-fn base_handler(req: Request, mut res: Response, path_format: DirectoryLayout, path: &str, maxzoom: u8, urlprefix: &str, verbose: bool, upstreams: &HashMap<String, String>) {
+fn base_handler(req: Request, mut res: Response, path_format: DirectoryLayout, path: &str, maxzoom: u8, urlprefix: &str, verbose: bool, upstreams: &HashMap<String, String>, post_fetch_command: &Option<String>) {
     let mut url: String = String::new();
     if let hyper::uri::RequestUri::AbsolutePath(ref u) = req.uri {
         url = u.clone();
@@ -147,7 +149,7 @@ fn base_handler(req: Request, mut res: Response, path_format: DirectoryLayout, p
             *res.status_mut() = hyper::status::StatusCode::NotFound;
         },
         URL::Tile(pathprefix, z, x, y, ext) => {
-            tile_handler(res, path_format, path, &pathprefix, z, x, y, ext, &upstreams);
+            tile_handler(res, path_format, path, &pathprefix, z, x, y, ext, &upstreams, post_fetch_command);
             if verbose {
                 println!("{}/{}/{}/{}.pbf", pathprefix, z, x, y);
             }
@@ -155,7 +157,7 @@ fn base_handler(req: Request, mut res: Response, path_format: DirectoryLayout, p
     }
 }
 
-fn tile_handler(mut res: Response, path_format: DirectoryLayout, path: &str, pathprefix: &URLPathPrefix, z: u8, x: u32, y: u32, ext: String, upstreams: &HashMap<String, String>) {
+fn tile_handler(mut res: Response, path_format: DirectoryLayout, path: &str, pathprefix: &URLPathPrefix, z: u8, x: u32, y: u32, ext: String, upstreams: &HashMap<String, String>, post_fetch_command: &Option<String>) {
     let tile = Tile::new(z, x, y);
     let tile = try_or_err!(tile.ok_or("ERR"), res, format!("Error when turning z {} x {} y {} into tileobject", z, x, y));
 
@@ -196,12 +198,20 @@ fn tile_handler(mut res: Response, path_format: DirectoryLayout, path: &str, pat
                     Ok(mut new_bytes) => {
                         this_vector_tile_contents.append(&mut new_bytes);
                         match save_to_file(this_tile_path, &this_vector_tile_contents) {
-                            Ok(_) => { println!("Cache miss {}/{}/{}/{} downloaded and saved in {:?}", prefix, z, x, y, this_tile_path); }
+                            Ok(_) => {
+                                println!("Cache miss {}/{}/{}/{} downloaded and saved in {:?}", prefix, z, x, y, this_tile_path);
+                                if let &Some(ref cmd) = post_fetch_command {
+                                    // Run the command now that we have downloaded the file
+                                    Command::new(cmd).arg(this_tile_path).status().ok();
+                                    // we don't care about the output status
+                                    println!("Ran the command {} for the file {:?}", cmd, this_tile_path);
+                                }
+                            },
                             Err(e) => {
                                 println!("Cache miss {}/{}/{}/{} and error downloading file: {:?}", prefix, z, x, y, e);
                                 *res.status_mut() = hyper::status::StatusCode::InternalServerError;
                                 return;
-                            }
+                            },
                         }
                     }
                 }
