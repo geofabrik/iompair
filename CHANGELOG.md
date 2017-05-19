@@ -1,3 +1,25 @@
+<a name="v0.8.0"></a>
+## v0.8.0 (2017-04-21)
+
+
+#### Features
+
+*   Ping all upstreams to ensure they work ([8c33d8f4](8c33d8f4))
+*   Another macro that might be useful ([301ad637](301ad637))
+*   Add len method to URLPathPrefix to see how many elements there are ([0ac2818f](0ac2818f))
+*   Convert a URLPathPrefix back to a Vec of Strings ([dca1f5eb](dca1f5eb))
+*   Add tilelist which will output tiles that are missing ([e5f35d6a](e5f35d6a))
+* **serve:**
+  *  --post-fetch-command allows you run arbitraty commands on new files ([f3e7a5b9](f3e7a5b9))
+  *  Can now specify upstream URLs so if the file isn't there, it'll be downloaded ([1958fe5e](1958fe5e))
+* **tilelist:**  Add min-zoom & zoom function ([8d255470](8d255470))
+
+#### Bug Fixes
+
+*   Allow 'timeout' param in the tilejson ([5a85672f](5a85672f))
+
+
+
 <a name="v0.7.0"></a>
 ## v0.7.0 (2017-01-11)
 
