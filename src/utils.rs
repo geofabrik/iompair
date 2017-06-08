@@ -94,13 +94,16 @@ pub fn download_url(url: &str, num_tries: u8) -> Result<Vec<u8>, IompairError> {
     // Do first download, which ensures result is always initialised
     let mut result = download_url_single(url);
 
-    for _ in 1..num_tries {
-        result = download_url_single(url);
-        if result.is_ok() {
-            // Successful download! Bail out early.
-            return result;
+    // If it's OK, don't go into the loop.
+    if ! result.is_ok() {
+        for _ in 1..num_tries {
+            result = download_url_single(url);
+            if result.is_ok() {
+                // Successful download! Bail out early.
+                return result;
+            }
+            // otherwise just try again at the loop
         }
-        // otherwise just try again at the loop
     }
 
     // If we've gotten to hear it has always failed and we've tried enough. So just return that
