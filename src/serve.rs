@@ -13,7 +13,7 @@ use std::process::Command;
 use hyper::Server;
 use hyper::server::Request;
 use hyper::server::Response;
-use hyper::header::{ContentType};
+use hyper::header::{ContentType, AccessControlAllowOrigin};
 use hyper::mime::{Mime, TopLevel, SubLevel};
 
 use rustc_serialize::json;
@@ -224,6 +224,7 @@ fn tile_handler(mut res: Response, path_format: DirectoryLayout, path: &str, pat
 
     *res.status_mut() = hyper::status::StatusCode::Ok;
     res.headers_mut().set(ContentType(Mime(TopLevel::Application, SubLevel::Ext("x-protobuf".to_owned()), vec![])));
+    res.headers_mut().set(AccessControlAllowOrigin::Any);
 
     // FIXME Cache headers? This says "no caching", which is probably not what's wanted
     //res.headers_mut().set(CacheControl(vec![CacheDirective::Private, CacheDirective::NoCache, CacheDirective::MaxAge(0)]));
