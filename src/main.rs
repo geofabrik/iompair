@@ -1,4 +1,5 @@
 extern crate hyper;
+#[macro_use]
 extern crate clap;
 extern crate rustc_serialize;
 extern crate slippy_map_tiles;
@@ -28,6 +29,7 @@ fn main() {
 
     let options = App::new("iompair")
         .about("Work with vector tiles")
+        .version(crate_version!())
         .subcommand(SubCommand::with_name("serve")
             .about("Serve a tile cache directory")
             .arg(Arg::with_name("port").short("p").long("port")
