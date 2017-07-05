@@ -1,6 +1,6 @@
 [package]
 authors = ["Rory McCann <rory@technomancy.org>"]
-description = "Work with Slippy map tile names, found in OpenStreetMap"
+description = "Work with vector tiles. Serve, cache and pregenerate from an upstream vector tile source."
 keywords = ["openstreetmap", "osm", "vectortiles"]
 license = "GPL-3.0+"
 name = "iompair"
