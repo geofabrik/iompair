@@ -1,3 +1,19 @@
+<a name="v0.9.0"></a>
+## v0.9.0 (2017-07-05)
+
+
+#### Bug Fixes
+
+*   Correct description in Cargo.toml ([0f2000ba](0f2000ba))
+*   Actually show version number using the crate_version ([95e36f14](95e36f14))
+*   Fix accidentally double download of all files ([879e7ffc](879e7ffc))
+
+#### Features
+
+*   Access-Control-Allow-Origin for all ([2411e028](2411e028))
+
+
+
 <a name="v0.8.0"></a>
 ## v0.8.0 (2017-04-21)
 
