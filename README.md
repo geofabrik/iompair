@@ -5,14 +5,16 @@ programmes to help working with [vectortiles](https://wiki.openstreetmap.org/wik
 tiles in a simple directory hiearchy, and serve them over HTTP.
 
 You can `serve` vector tiles from a directory over TMS URLs, use the `stuffer`
-to fill you local cache from an upstream vector tile cache, use `expire` to
-expire tiles from an `osm2pgsql` tile expire list, and use `cache` to assist
-you developing a tile style to prevent you having to regenerate vector tiles
-from scratch
+to fill you local cache from an upstream vector tile cache, and use `expire` to
+expire tiles from an `osm2pgsql` tile expire list.
 
 # Compiling
 
     cargo build
+
+This will build a debug build. `cargo build --release` will build a "release"
+build, which takes longer to compile, but will perform optimizations and a
+smaller binary. It's unlike that iompair will be CPU limited.
 
 # Usage
 
@@ -29,9 +31,11 @@ It also supports TileStash (`--ts-path`), and ZXY directory layouts
 
 #### TileCache
 
+A TileCache directory is of the form `Z/XXX/XXX/XXX/YYY/YYY/YYY.pbf`
+
 #### TileStash
 
-TileStash are of the form 
+A TileStash directory is of the form `Z/XXX/XXX/YYY/YYY.pbf`
 
 #### ZYX
 
@@ -40,9 +44,9 @@ create this)
 
 ### TileJSON URLs
 
-The [TileJSON]() url is `/index.json`. It is the contents of the file `index.json`
-in the root of the `--tc/ts/zxy-path` (or `metadata.json` if that doesn't
-exist.
+The [TileJSON](https://github.com/mapbox/tilejson-spec) url is `/index.json`.
+It is the contents of the file `index.json` in the root of the
+`--tc/ts/zxy-path` (or `metadata.json` if that doesn't exist.
 
 ### Merging multiple vector tiles together
 
